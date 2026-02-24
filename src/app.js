@@ -1,89 +1,132 @@
 import Fastify from 'fastify';
 import dotenv from 'dotenv';
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import errorHandler from './utils/errorHandler.js';
-import dbPlugin from './plugins/database.js';
-import prismaPlugin from './plugins/prisma.js';
-import authPlugin from './plugins/auth.js';
-import bcrypt from 'fastify-bcrypt';
-import registerRoutes from './globalroutes.js';
-
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
-const app = Fastify({
-    logger: {
-        transport: {
-            target: '@fastify/one-line-logger'
-        }
-    }
-});
+// ─── Build App ───────────────────────────────────────────────────────────────
+async function buildApp() {
+    const { default: cors } = await import('@fastify/cors');
+    const { default: helmet } = await import('@fastify/helmet');
+    const { default: errorHandler } = await import('./utils/errorHandler.js');
+    const { default: dbPlugin } = await import('./plugins/database.js');
+    const { default: prismaPlugin } = await import('./plugins/prisma.js');
+    const { default: authPlugin } = await import('./plugins/auth.js');
+    const { default: bcrypt } = await import('fastify-bcrypt');
+    const { default: registerRoutes } = await import('./globalroutes.js');
 
-// Register Plugins
-app.register(helmet); // Security Headers
-app.register(cors, {
-    origin: (origin, cb) => {
-        const allowedOrigins = [
-            'http://localhost:3000',
-            'http://127.0.0.1:3000',
-            'http://localhost:5173',
-            'http://127.0.0.1:5173',
-            'https://nild-api.vercel.app',
-            /\.vercel\.app$/  // Allow all Vercel preview deployments
-        ];
-
-        if (!origin) {
-            cb(null, true);
-            return;
-        }
-
-        // Check if origin matches any allowed pattern
-        const isAllowed = allowedOrigins.some(allowed => {
-            if (typeof allowed === 'string') {
-                return origin === allowed;
+    const app = Fastify({
+        logger: {
+            transport: {
+                target: '@fastify/one-line-logger'
             }
-            return allowed.test(origin);
+        }
+    });
+
+    // ── Plugins ──────────────────────────────────────────────────────────────
+    app.register(helmet);
+    app.register(cors, {
+        origin: (origin, cb) => {
+            const allowedOrigins = [
+                'http://localhost:3000',
+                'http://127.0.0.1:3000',
+                'http://localhost:5173',
+                'http://127.0.0.1:5173',
+                'https://nild-api.vercel.app',
+                /\.vercel\.app$/
+            ];
+
+            if (!origin) { cb(null, true); return; }
+
+            const isAllowed = allowedOrigins.some(allowed =>
+                typeof allowed === 'string' ? origin === allowed : allowed.test(origin)
+            );
+
+            isAllowed ? cb(null, true) : cb(new Error('Not allowed by CORS'), false);
+        },
+        credentials: true
+    });
+
+    app.register(dbPlugin);
+    app.register(prismaPlugin);
+    app.register(authPlugin);
+    app.register(bcrypt, { saltWorkFactor: 12 });
+
+    // ── Error Handler ─────────────────────────────────────────────────────────
+    app.setErrorHandler(errorHandler);
+
+    // ── Health Check ──────────────────────────────────────────────────────────
+    app.get('/health', async (request, reply) => {
+        return { status: 'ok', timestamp: new Date().toISOString() };
+    });
+
+    // ── Routes ────────────────────────────────────────────────────────────────
+    app.register(registerRoutes, { prefix: '/api' });
+
+    return app;
+}
+
+// ─── Serverless Handler (used by Vercel via api/index.js) ─────────────────────
+let app = null;
+let appReady = false;
+let initError = null;
+
+async function initApp() {
+    if (appReady) return;
+    if (initError) throw initError;
+
+    try {
+        console.log('🚀 Initializing app...');
+        app = await buildApp();
+        await app.ready();
+        appReady = true;
+        console.log('✅ App ready');
+    } catch (err) {
+        initError = err;
+        console.error('❌ App initialization failed:', err.message);
+        console.error(err.stack);
+        throw err;
+    }
+}
+
+export default async (req, res) => {
+    try {
+        await initApp();
+
+        const response = await app.inject({
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            payload: req,
         });
 
-        if (isAllowed) {
-            cb(null, true);
-            return;
+        res.statusCode = response.statusCode;
+        if (response.headers) {
+            Object.entries(response.headers).forEach(([key, value]) => {
+                res.setHeader(key, value);
+            });
         }
+        res.end(response.rawPayload);
 
-        cb(new Error('Not allowed by CORS'), false);
-    },
-    credentials: true
-});   // CORS - Allow selected origins with credentials
-app.register(dbPlugin); // Database Connection
-app.register(prismaPlugin); // Prisma ORM
-app.register(authPlugin); // JWT Auth
-app.register(bcrypt, { saltWorkFactor: 12 }); // Password Hashing
-
-
-
-
-
-// Global Error Handler
-app.setErrorHandler(errorHandler);
-
-// Health Check Endpoint (for Docker)
-app.get('/health', async (request, reply) => {
-    return { status: 'ok', timestamp: new Date().toISOString() };
-});
-
-// Register All Routes (every module route is prefixed with /api)
-app.register(registerRoutes, { prefix: '/api' });
-
-// Trigger restart for .env changes
-
-const start = async () => {
-    try {
-        app.listen({ port: process.env.PORT || 3000 });
     } catch (err) {
-        app.log.error(err);
-        process.exit(1);
+        console.error('❌ Handler error:', err.message);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'Internal Server Error', message: err.message }));
     }
 };
 
-start();
+// ─── Local Dev Server (only runs when executed directly: npm run dev) ─────────
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMain) {
+    const start = async () => {
+        try {
+            const localApp = await buildApp();
+            await localApp.listen({ port: process.env.PORT || 5000, host: '0.0.0.0' });
+        } catch (err) {
+            console.error('❌ Failed to start server:', err);
+            process.exit(1);
+        }
+    };
+    start();
+}
