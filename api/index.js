@@ -1,79 +1,82 @@
 import Fastify from 'fastify';
 import dotenv from 'dotenv';
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import errorHandler from '../src/utils/errorHandler.js';
-import dbPlugin from '../src/plugins/database.js';
-import prismaPlugin from '../src/plugins/prisma.js';
-import authPlugin from '../src/plugins/auth.js';
-import bcrypt from 'fastify-bcrypt';
-import registerRoutes from '../src/globalroutes.js';
 
 dotenv.config();
 
-const app = Fastify({
-    logger: true
-});
-
-// Register Plugins
-app.register(helmet); // Security Headers
-app.register(cors, {
-    origin: (origin, cb) => {
-        const allowedOrigins = [
-            'http://localhost:3000',
-            'http://127.0.0.1:3000',
-            'http://localhost:5173',
-            'http://127.0.0.1:5173',
-            'https://nild-api.vercel.app',
-            /\.vercel\.app$/  // Allow all Vercel preview deployments
-        ];
-
-        if (!origin) {
-            cb(null, true);
-            return;
-        }
-
-        // Check if origin matches any allowed pattern
-        const isAllowed = allowedOrigins.some(allowed => {
-            if (typeof allowed === 'string') {
-                return origin === allowed;
-            }
-            return allowed.test(origin);
-        });
-
-        if (isAllowed) {
-            cb(null, true);
-            return;
-        }
-
-        cb(new Error('Not allowed by CORS'), false);
-    },
-    credentials: true
-});
-
-app.register(dbPlugin); // Database Connection
-app.register(prismaPlugin); // Prisma ORM
-app.register(authPlugin); // JWT Auth
-app.register(bcrypt, { saltWorkFactor: 12 }); // Password Hashing
-
-// Global Error Handler
-app.setErrorHandler(errorHandler);
-
-// Health Check Endpoint
-app.get('/health', async (request, reply) => {
-    return { status: 'ok', timestamp: new Date().toISOString() };
-});
-
-// Register All Routes (every module route is prefixed with /api)
-app.register(registerRoutes, { prefix: '/api' });
-
-// Serverless handler for Vercel
+// --- Lazy initialization to catch startup errors clearly ---
+let app = null;
 let appReady = false;
+let initError = null;
+
+async function buildApp() {
+    const { default: cors } = await import('@fastify/cors');
+    const { default: helmet } = await import('@fastify/helmet');
+    const { default: errorHandler } = await import('../src/utils/errorHandler.js');
+    const { default: dbPlugin } = await import('../src/plugins/database.js');
+    const { default: prismaPlugin } = await import('../src/plugins/prisma.js');
+    const { default: authPlugin } = await import('../src/plugins/auth.js');
+    const { default: bcrypt } = await import('fastify-bcrypt');
+    const { default: registerRoutes } = await import('../src/globalroutes.js');
+
+    const fastify = Fastify({ logger: true });
+
+    // Register Plugins
+    fastify.register(helmet);
+    fastify.register(cors, {
+        origin: (origin, cb) => {
+            const allowedOrigins = [
+                'http://localhost:3000',
+                'http://127.0.0.1:3000',
+                'http://localhost:5173',
+                'http://127.0.0.1:5173',
+                'https://nild-api.vercel.app',
+                /\.vercel\.app$/
+            ];
+
+            if (!origin) { cb(null, true); return; }
+
+            const isAllowed = allowedOrigins.some(allowed =>
+                typeof allowed === 'string' ? origin === allowed : allowed.test(origin)
+            );
+
+            isAllowed ? cb(null, true) : cb(new Error('Not allowed by CORS'), false);
+        },
+        credentials: true
+    });
+
+    fastify.register(dbPlugin);
+    fastify.register(prismaPlugin);
+    fastify.register(authPlugin);
+    fastify.register(bcrypt, { saltWorkFactor: 12 });
+
+    fastify.setErrorHandler(errorHandler);
+
+    // Health Check
+    fastify.get('/health', async (request, reply) => {
+        return { status: 'ok', timestamp: new Date().toISOString() };
+    });
+
+    // All API Routes
+    fastify.register(registerRoutes, { prefix: '/api' });
+
+    return fastify;
+}
 
 async function initApp() {
-    if (!appReady) {
+    if (appReady) return;
+    if (initError) throw initError;
+
+    try {
+        console.log('🚀 Initializing Fastify app...');
+        app = await buildApp();
         await app.ready();
         appReady = true;
+        console.log('✅ App initialized successfully');
+    } catch (err) {
+        initError = err;
+        console.error('❌ App initialization failed:', err.message);
+        console.error('Stack:', err.stack);
+        throw err;
     }
 }
 
@@ -89,14 +92,22 @@ export default async (req, res) => {
         });
 
         res.statusCode = response.statusCode;
-        response.headers && Object.entries(response.headers).forEach(([key, value]) => {
-            res.setHeader(key, value);
-        });
+        if (response.headers) {
+            Object.entries(response.headers).forEach(([key, value]) => {
+                res.setHeader(key, value);
+            });
+        }
         res.end(response.rawPayload);
+
     } catch (err) {
-        console.error('❌ Serverless handler error:', err);
+        console.error('❌ Fatal handler error:', err.message);
+        console.error('Stack:', err.stack);
         res.statusCode = 500;
-        res.end(JSON.stringify({ error: 'Internal Server Error', message: err.message }));
+        res.end(JSON.stringify({
+            error: 'Internal Server Error',
+            message: err.message,
+            // Show stack in non-production for debugging
+            ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+        }));
     }
 };
-
