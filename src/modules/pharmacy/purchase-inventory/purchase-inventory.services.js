@@ -3,7 +3,7 @@ import {
   parseBigIntSearch,
   toSafeNumber,
 } from "../pharmacy.common.js";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../../generated/prisma/index.js";
 import { generateNumber } from "../../../utils/number-generator.js";
 
 function parseDateBoundary(value, isEnd = false) {
