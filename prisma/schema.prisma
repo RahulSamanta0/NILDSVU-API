@@ -1,0 +1,2473 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model appointments {
+  appointment_id                         BigInt              @id @default(autoincrement())
+  tenant_id                              BigInt
+  facility_id                            BigInt?
+  appointment_number                     String              @unique @db.VarChar(50)
+  patient_id                             BigInt
+  appointment_date                       DateTime            @db.Date
+  appointment_time                       DateTime            @db.Time(6)
+  appointment_type                       String?             @db.VarChar(50)
+  department_id                          Int?
+  doctor_id                              BigInt?
+  therapist_id                           BigInt?
+  reason                                 String?
+  status                                 appointment_status? @default(scheduled)
+  booked_by                              String?             @db.VarChar(50)
+  confirmation_sent                      Boolean?            @default(false)
+  reminder_sent                          Boolean?            @default(false)
+  created_at                             DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at                             DateTime?           @default(now()) @db.Timestamp(6)
+  cancellation_reason                    String?             @db.VarChar(255)
+  departments                            departments?        @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_department")
+  users_appointments_doctor_idTousers    users?              @relation("appointments_doctor_idTousers", fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_doctor")
+  facilities                             facilities?         @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_facility")
+  patients                               patients            @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_patient")
+  tenants                                tenants             @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_tenant")
+  users_appointments_therapist_idTousers users?              @relation("appointments_therapist_idTousers", fields: [therapist_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_therapist")
+  opd_visits                             opd_visits[]
+
+  @@unique([tenant_id, appointment_number], map: "idx_appointments_number")
+  @@index([tenant_id, appointment_date, status], map: "idx_appointments_date_status")
+  @@index([tenant_id, doctor_id, appointment_date, status], map: "idx_appointments_doctor")
+  @@index([tenant_id, patient_id, appointment_date], map: "idx_appointments_patient")
+  @@index([tenant_id, status], map: "idx_appointments_status")
+}
+
+model audit_logs {
+  audit_id   BigInt    @id @default(autoincrement())
+  tenant_id  BigInt
+  table_name String    @db.VarChar(100)
+  record_id  BigInt
+  action     String    @db.VarChar(50)
+  old_values Json?
+  new_values Json?
+  user_id    BigInt?
+  ip_address String?   @db.VarChar(50)
+  user_agent String?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  tenants    tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_audit_tenant")
+  users      users?    @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_audit_user")
+
+  @@index([tenant_id, created_at], map: "idx_audit_created")
+  @@index([tenant_id, table_name, record_id], map: "idx_audit_table_record")
+  @@index([tenant_id, user_id, created_at], map: "idx_audit_user")
+}
+
+model backup_policies {
+  policy_id        BigInt        @id @default(autoincrement())
+  tenant_id        BigInt
+  policy_name      String        @db.VarChar(100)
+  schedule_cron    String        @db.VarChar(100)
+  retention_days   Int
+  storage_location String?       @db.VarChar(255)
+  is_active        Boolean?      @default(true)
+  created_at       DateTime?     @default(now()) @db.Timestamp(6)
+  tenants          tenants       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_backup_policies_tenant")
+  backup_runs      backup_runs[]
+
+  @@unique([tenant_id, policy_name], map: "idx_backup_policy_name")
+}
+
+model backup_runs {
+  run_id           BigInt          @id @default(autoincrement())
+  tenant_id        BigInt
+  policy_id        BigInt
+  run_started_at   DateTime?       @default(now()) @db.Timestamp(6)
+  run_completed_at DateTime?       @db.Timestamp(6)
+  status           String?         @default("pending") @db.VarChar(50)
+  backup_size_mb   Int?
+  checksum         String?         @db.VarChar(128)
+  storage_uri      String?         @db.VarChar(500)
+  backup_policies  backup_policies @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_backup_runs_policy")
+  tenants          tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_backup_runs_tenant")
+
+  @@index([tenant_id, policy_id, run_started_at], map: "idx_backup_runs")
+}
+
+model beds {
+  bed_id         Int              @id @default(autoincrement())
+  tenant_id      BigInt
+  ward_id        Int
+  bed_number     String           @db.VarChar(50)
+  bed_type       String?          @db.VarChar(50)
+  is_occupied    Boolean?         @default(false)
+  is_active      Boolean?         @default(true)
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  tenants        tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_beds_tenant")
+  wards          wards            @relation(fields: [ward_id], references: [ward_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_beds_ward")
+  ipd_admissions ipd_admissions[]
+
+  @@unique([tenant_id, ward_id, bed_number], map: "idx_beds_ward_number")
+  @@index([tenant_id, is_occupied, is_active], map: "idx_beds_availability")
+}
+
+model bill_items {
+  bill_item_id BigInt    @id @default(autoincrement())
+  tenant_id    BigInt
+  bill_id      BigInt
+  service_type String    @db.VarChar(100)
+  service_id   Int?
+  service_name String    @db.VarChar(255)
+  quantity     Int?      @default(1)
+  unit_price   Decimal   @db.Decimal(10, 2)
+  total_price  Decimal   @db.Decimal(12, 2)
+  discount     Decimal?  @default(0) @db.Decimal(10, 2)
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  bills        bills     @relation(fields: [bill_id], references: [bill_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bill_items_bill")
+  tenants      tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bill_items_tenant")
+
+  @@index([tenant_id, bill_id], map: "idx_bill_items")
+}
+
+model bills {
+  bill_id           BigInt          @id @default(autoincrement())
+  tenant_id         BigInt
+  facility_id       BigInt?
+  bill_number       String          @unique @db.VarChar(50)
+  patient_id        BigInt
+  visit_id          BigInt?
+  admission_id      BigInt?
+  bill_type         String          @db.VarChar(50)
+  bill_date         DateTime?       @default(now()) @db.Timestamp(6)
+  total_amount      Decimal         @default(0) @db.Decimal(12, 2)
+  discount_amount   Decimal?        @default(0) @db.Decimal(12, 2)
+  tax_amount        Decimal?        @default(0) @db.Decimal(12, 2)
+  net_amount        Decimal         @default(0) @db.Decimal(12, 2)
+  paid_amount       Decimal?        @default(0) @db.Decimal(12, 2)
+  balance_amount    Decimal?        @default(0) @db.Decimal(12, 2)
+  payment_status    billing_status? @default(unpaid)
+  concession_type   String?         @db.VarChar(100)
+  concession_reason String?
+  generated_by      BigInt?
+  created_at        DateTime?       @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?       @default(now()) @db.Timestamp(6)
+  bill_items        bill_items[]
+  ipd_admissions    ipd_admissions? @relation(fields: [admission_id], references: [admission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_admission")
+  facilities        facilities?     @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_facility")
+  users             users?          @relation(fields: [generated_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_generator")
+  patients          patients        @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_patient")
+  tenants           tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_tenant")
+  opd_visits        opd_visits?     @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_visit")
+  payments          payments[]
+
+  @@unique([tenant_id, bill_number], map: "idx_bills_number")
+  @@index([tenant_id, bill_date], map: "idx_bills_date")
+  @@index([tenant_id, patient_id, bill_date], map: "idx_bills_patient")
+  @@index([tenant_id, payment_status, bill_date], map: "idx_bills_status")
+}
+
+model connection_pool_settings {
+  setting_id           BigInt    @id @default(autoincrement())
+  tenant_id            BigInt
+  pool_mode            String?   @db.VarChar(50)
+  max_client_conn      Int?
+  default_pool_size    Int?
+  reserve_pool_size    Int?
+  idle_timeout_seconds Int?
+  statement_timeout_ms Int?
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+  tenants              tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pool_tenant")
+
+  @@index([tenant_id], map: "idx_pool_tenant")
+}
+
+model cssd_instrument_sets {
+  set_id        Int             @id @default(autoincrement())
+  tenant_id     BigInt
+  set_code      String          @unique @db.VarChar(50)
+  set_name      String          @db.VarChar(255)
+  set_type      String?         @db.VarChar(100)
+  item_count    Int?
+  is_active     Boolean?        @default(true)
+  created_at    DateTime?       @default(now()) @db.Timestamp(6)
+  tenants       tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_sets_tenant")
+  cssd_requests cssd_requests[]
+
+  @@unique([tenant_id, set_code], map: "idx_cssd_set_code")
+}
+
+model cssd_requests {
+  request_id               BigInt               @id @default(autoincrement())
+  tenant_id                BigInt
+  request_number           String               @unique @db.VarChar(50)
+  requesting_department_id Int
+  set_id                   Int
+  quantity                 Int?                 @default(1)
+  urgency                  priority_level?      @default(normal)
+  requested_by             BigInt?
+  request_time             DateTime?            @default(now()) @db.Timestamp(6)
+  status                   request_status?      @default(pending)
+  completed_at             DateTime?            @db.Timestamp(6)
+  created_at               DateTime?            @default(now()) @db.Timestamp(6)
+  departments              departments          @relation(fields: [requesting_department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_requests_dept")
+  users                    users?               @relation(fields: [requested_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_requests_requester")
+  cssd_instrument_sets     cssd_instrument_sets @relation(fields: [set_id], references: [set_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_requests_set")
+  tenants                  tenants              @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_requests_tenant")
+
+  @@unique([tenant_id, request_number], map: "idx_cssd_request_number")
+  @@index([tenant_id, status, request_time], map: "idx_cssd_status")
+}
+
+model cssd_sterilization_cycles {
+  cycle_id             BigInt    @id @default(autoincrement())
+  tenant_id            BigInt
+  batch_number         String    @unique @db.VarChar(50)
+  autoclave_machine_id String?   @db.VarChar(50)
+  load_type            String?   @db.VarChar(50)
+  start_time           DateTime  @db.Timestamp(6)
+  end_time             DateTime? @db.Timestamp(6)
+  temperature_log      Json?
+  pressure_log         Json?
+  cycle_result         String?   @db.VarChar(50)
+  technician_id        BigInt?
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+  users                users?    @relation(fields: [technician_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_cycles_tech")
+  tenants              tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cssd_cycles_tenant")
+
+  @@unique([tenant_id, batch_number], map: "idx_cssd_batch")
+  @@index([tenant_id, start_time], map: "idx_cssd_start_time")
+}
+
+model data_retention_policies {
+  retention_id         BigInt    @id @default(autoincrement())
+  tenant_id            BigInt
+  data_domain          String    @db.VarChar(100)
+  retention_years      Int
+  archive_after_months Int
+  is_active            Boolean?  @default(true)
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+  tenants              tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_retention_tenant")
+
+  @@unique([tenant_id, data_domain], map: "idx_retention_domain")
+}
+
+model departments {
+  department_id          Int                      @id @default(autoincrement())
+  tenant_id              BigInt
+  facility_id            BigInt?
+  department_name        String                   @db.VarChar(100)
+  department_code        String                   @db.VarChar(50)
+  department_type        String?                  @db.VarChar(50)
+  head_of_department     BigInt?
+  contact_number         String?                  @db.VarChar(20)
+  is_active              Boolean?                 @default(true)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  location               String?                  @db.VarChar(255)
+  appointments           appointments[]
+  cssd_requests          cssd_requests[]
+  facilities             facilities?              @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_departments_facility")
+  users                  users?                   @relation(fields: [head_of_department], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_departments_head")
+  tenants                tenants                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_departments_tenant")
+  duty_roster            duty_roster[]
+  inventory_transactions inventory_transactions[]
+  linen_requests         linen_requests[]
+  opd_visits             opd_visits[]
+  staff_profiles         staff_profiles[]
+  visitor_logs           visitor_logs[]
+
+  @@unique([tenant_id, department_code], map: "idx_departments_code")
+  @@index([tenant_id, is_active], map: "idx_departments_active")
+}
+
+model discharge_summaries {
+  summary_id                                                              BigInt           @id @default(autoincrement())
+  tenant_id                                                               BigInt
+  admission_id                                                            BigInt           @unique
+  patient_id                                                              BigInt
+  final_diagnosis                                                         String?
+  procedures_performed                                                    String?
+  treatment_summary                                                       String?
+  medications_at_discharge                                                String?
+  follow_up_instructions                                                  String?
+  discharge_advice                                                        String?
+  doctor_id                                                               BigInt
+  created_at                                                              DateTime?        @default(now()) @db.Timestamp(6)
+  ipd_admissions_discharge_summaries_admission_idToipd_admissions         ipd_admissions   @relation("discharge_summaries_admission_idToipd_admissions", fields: [admission_id], references: [admission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_summaries_admission")
+  users                                                                   users            @relation(fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_summaries_doctor")
+  patients                                                                patients         @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_summaries_patient")
+  tenants                                                                 tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_summaries_tenant")
+  ipd_admissions_ipd_admissions_discharge_summary_idTodischarge_summaries ipd_admissions[] @relation("ipd_admissions_discharge_summary_idTodischarge_summaries")
+
+  @@unique([tenant_id, admission_id], map: "idx_discharge_admission")
+  @@index([tenant_id, patient_id], map: "idx_discharge_patient")
+}
+
+model drugs {
+  drug_id             Int                   @id @default(autoincrement())
+  tenant_id           BigInt
+  drug_code           String                @unique @db.VarChar(50)
+  drug_name           String                @db.VarChar(255)
+  generic_name        String?               @db.VarChar(255)
+  drug_category       String?               @db.VarChar(100)
+  dosage_form         String?               @db.VarChar(50)
+  strength            String?               @db.VarChar(100)
+  manufacturer        String?               @db.VarChar(255)
+  is_active           Boolean?              @default(true)
+  created_at          DateTime?             @default(now()) @db.Timestamp(6)
+  tenants             tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_drugs_tenant")
+  pharmacy_sale_items pharmacy_sale_items[]
+  pharmacy_stock      pharmacy_stock[]
+  prescription_items  prescription_items[]
+  purchase_order_items purchase_order_items[]
+
+  @@unique([tenant_id, drug_code], map: "idx_drugs_code")
+  @@index([tenant_id, drug_name], map: "idx_drugs_name")
+}
+
+model duty_roster {
+  roster_id          BigInt               @id @default(autoincrement())
+  tenant_id          BigInt
+  staff_id           BigInt
+  duty_date          DateTime             @db.Date
+  shift_type         shift_type?
+  start_time         DateTime             @db.Time(6)
+  end_time           DateTime             @db.Time(6)
+  department_id      Int?
+  is_available       Boolean?             @default(true)
+  remarks            String?
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  attendance_records attendance_records[]
+  departments        departments?         @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_roster_department")
+  staff_profiles     staff_profiles       @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_roster_staff")
+  tenants            tenants              @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_roster_tenant")
+
+  @@unique([tenant_id, staff_id, duty_date], map: "idx_duty_roster_unique_staff_date")
+  @@index([tenant_id, duty_date, department_id], map: "idx_duty_date_dept")
+  @@index([tenant_id, staff_id, duty_date], map: "idx_duty_roster")
+}
+
+model facilities {
+  facility_id      BigInt             @id @default(autoincrement())
+  tenant_id        BigInt
+  facility_code    String             @unique @db.VarChar(50)
+  facility_name    String             @db.VarChar(255)
+  facility_type    String?            @db.VarChar(100)
+  address_line1    String?            @db.VarChar(255)
+  address_line2    String?            @db.VarChar(255)
+  city             String?            @db.VarChar(100)
+  state            String?            @db.VarChar(100)
+  pincode          String?            @db.VarChar(10)
+  contact_number   String?            @db.VarChar(20)
+  is_active        Boolean?           @default(true)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  appointments     appointments[]
+  bills            bills[]
+  departments      departments[]
+  tenants          tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_facilities_tenant")
+  ipd_admissions   ipd_admissions[]
+  lab_test_orders  lab_test_orders[]
+  opd_visits       opd_visits[]
+  patients         patients[]
+  payments         payments[]
+  pharmacy_sales   pharmacy_sales[]
+  pharmacy_stock   pharmacy_stock[]
+  radiology_orders radiology_orders[]
+  therapy_orders   therapy_orders[]
+  users            users[]
+  wards            wards[]
+  ambulances       ambulances[]
+  ambulance_calls  ambulance_calls[]
+
+  @@unique([tenant_id, facility_code], map: "idx_facilities_code")
+  @@index([tenant_id, is_active], map: "idx_facilities_active")
+}
+
+model inventory_categories {
+  category_id                Int                    @id @default(autoincrement())
+  tenant_id                  BigInt
+  category_name              String                 @db.VarChar(100)
+  category_code              String                 @db.VarChar(50)
+  parent_category_id         Int?
+  description                String?
+  is_active                  Boolean?               @default(true)
+  created_at                 DateTime?              @default(now()) @db.Timestamp(6)
+  inventory_categories       inventory_categories?  @relation("inventory_categoriesToinventory_categories", fields: [parent_category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_categories_parent")
+  other_inventory_categories inventory_categories[] @relation("inventory_categoriesToinventory_categories")
+  tenants                    tenants                @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_categories_tenant")
+  inventory_items            inventory_items[]
+
+  @@unique([tenant_id, category_code], map: "idx_inventory_category_code")
+}
+
+model inventory_items {
+  item_id                BigInt                   @id @default(autoincrement())
+  tenant_id              BigInt
+  item_code              String                   @unique @db.VarChar(50)
+  item_name              String                   @db.VarChar(255)
+  category_id            Int?
+  description            String?
+  unit_of_measure        String?                  @db.VarChar(50)
+  reorder_level          Int?                     @default(10)
+  current_stock          Int?                     @default(0)
+  unit_price             Decimal?                 @db.Decimal(10, 2)
+  is_active              Boolean?                 @default(true)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  inventory_categories   inventory_categories?    @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_items_category")
+  tenants                tenants                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_items_tenant")
+  inventory_transactions inventory_transactions[]
+  purchase_order_items   purchase_order_items[]
+  // vendor_items           vendor_items[]
+  // grn_items              grn_items[]
+  // department_stock       department_stock[]
+
+  @@unique([tenant_id, item_code], map: "idx_inventory_code")
+  @@index([tenant_id, category_id], map: "idx_inventory_category")
+  @@index([tenant_id, current_stock], map: "idx_inventory_stock")
+}
+
+
+
+model inventory_transactions {
+  transaction_id                                   BigInt             @id @default(autoincrement())
+  tenant_id                                        BigInt
+  item_id                                          BigInt
+  transaction_type                                 inventory_txn_type
+  transaction_date                                 DateTime?          @default(now()) @db.Timestamp(6)
+  quantity                                         Int
+  reference_number                                 String?            @db.VarChar(100)
+  department_id                                    Int?
+  issued_to                                        BigInt?
+  return_id                                        BigInt?
+  supplier_id                                      BigInt?
+  reason                                           String?
+  status                                           return_status?
+  damage_type                                      String?            @db.VarChar(100)
+  picked_up_at                                     DateTime?          @db.Timestamp(6)
+  remarks                                          String?
+  performed_by                                     BigInt?
+  created_at                                       DateTime?          @default(now()) @db.Timestamp(6)
+  departments                                      departments?       @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_trans_department")
+  users_inventory_transactions_issued_toTousers    users?             @relation("inventory_transactions_issued_toTousers", fields: [issued_to], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_trans_issued_to")
+  inventory_items                                  inventory_items    @relation(fields: [item_id], references: [item_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_trans_item")
+  users_inventory_transactions_performed_byTousers users?             @relation("inventory_transactions_performed_byTousers", fields: [performed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_trans_performer")
+  suppliers                                        suppliers?         @relation(fields: [supplier_id], references: [supplier_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_trans_supplier")
+  tenants                                          tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_inv_trans_tenant")
+
+  @@index([tenant_id, item_id, transaction_date], map: "idx_inventory_trans")
+  @@index([tenant_id, transaction_type, transaction_date], map: "idx_inventory_type")
+  @@index([tenant_id, supplier_id, status], map: "idx_inventory_returns")
+}
+
+model ipd_admissions {
+  admission_id                                                                 BigInt               @id @default(autoincrement())
+  tenant_id                                                                    BigInt
+  facility_id                                                                  BigInt?
+  admission_number                                                             String               @unique @db.VarChar(50)
+  patient_id                                                                   BigInt
+  ward_id                                                                      Int?
+  bed_id                                                                       Int?
+  admission_date                                                               DateTime             @db.Timestamp(6)
+  admission_type                                                               String               @db.VarChar(50)
+  admitting_doctor_id                                                          BigInt?
+  provisional_diagnosis                                                        String?
+  priority                                                                     priority_level?
+  status                                                                       admission_status?    @default(admitted)
+  discharge_date                                                               DateTime?            @db.Timestamp(6)
+  discharge_type                                                               String?              @db.VarChar(50)
+  discharge_summary_id                                                         BigInt?
+  created_at                                                                   DateTime?            @default(now()) @db.Timestamp(6)
+  updated_at                                                                   DateTime?            @default(now()) @db.Timestamp(6)
+  bills                                                                        bills[]
+  discharge_summaries_discharge_summaries_admission_idToipd_admissions         discharge_summaries? @relation("discharge_summaries_admission_idToipd_admissions")
+  beds                                                                         beds?                @relation(fields: [bed_id], references: [bed_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_bed")
+  discharge_summaries_ipd_admissions_discharge_summary_idTodischarge_summaries discharge_summaries? @relation("ipd_admissions_discharge_summary_idTodischarge_summaries", fields: [discharge_summary_id], references: [summary_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_discharge_summary")
+  users                                                                        users?               @relation(fields: [admitting_doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_doctor")
+  facilities                                                                   facilities?          @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_facility")
+  patients                                                                     patients             @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_patient")
+  tenants                                                                      tenants              @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_tenant")
+  wards                                                                        wards?               @relation(fields: [ward_id], references: [ward_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_admissions_ward")
+  ipd_progress_notes                                                           ipd_progress_notes[]
+  lab_test_orders                                                              lab_test_orders[]
+  radiology_orders                                                             radiology_orders[]
+  therapy_orders                                                               therapy_orders[]
+
+  @@unique([tenant_id, admission_number], map: "idx_ipd_admission_number")
+  @@index([tenant_id, admission_date], map: "idx_ipd_admission_date")
+  @@index([tenant_id, bed_id, status], map: "idx_ipd_bed_status")
+  @@index([tenant_id, patient_id, status], map: "idx_ipd_patient_status")
+  @@index([tenant_id, ward_id, status], map: "idx_ipd_ward_status")
+}
+
+model ipd_progress_notes {
+  note_id                                   BigInt         @id @default(autoincrement())
+  tenant_id                                 BigInt
+  admission_id                              BigInt
+  note_date                                 DateTime?      @default(now()) @db.Timestamp(6)
+  note_type                                 String         @db.VarChar(50)
+  note_content                              String
+  vitals                                    Json?
+  doctor_id                                 BigInt?
+  nurse_id                                  BigInt?
+  created_at                                DateTime?      @default(now()) @db.Timestamp(6)
+  ipd_admissions                            ipd_admissions @relation(fields: [admission_id], references: [admission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notes_admission")
+  users_ipd_progress_notes_doctor_idTousers users?         @relation("ipd_progress_notes_doctor_idTousers", fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notes_doctor")
+  users_ipd_progress_notes_nurse_idTousers  users?         @relation("ipd_progress_notes_nurse_idTousers", fields: [nurse_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notes_nurse")
+  tenants                                   tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notes_tenant")
+
+  @@index([tenant_id, admission_id, note_date], map: "idx_ipd_notes_admission")
+}
+
+model lab_test_items {
+  test_item_id                                         BigInt          @id @default(autoincrement())
+  tenant_id                                            BigInt
+  order_id                                             BigInt
+  test_id                                              Int
+  test_name                                            String          @db.VarChar(255)
+  sample_type                                          String?         @db.VarChar(100)
+  result_value                                         String?         @db.VarChar(500)
+  result_unit                                          String?         @db.VarChar(50)
+  reference_range                                      String?         @db.VarChar(100)
+  status                                               order_status?   @default(pending)
+  result_date                                          DateTime?       @db.Timestamp(6)
+  verified_by                                          BigInt?
+  verified_at                                          DateTime?       @db.Timestamp(6)
+  created_at                                           DateTime?       @default(now()) @db.Timestamp(6)
+  critical_acknowledged_at                             DateTime?       @db.Timestamp(6)
+  critical_acknowledged_by                             BigInt?
+  is_critical                                          Boolean?        @default(false)
+  remarks                                              String?
+  users_lab_test_items_critical_acknowledged_byTousers users?          @relation("lab_test_items_critical_acknowledged_byTousers", fields: [critical_acknowledged_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_items_critical_ack")
+  lab_test_orders                                      lab_test_orders @relation(fields: [order_id], references: [order_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_items_order")
+  tenants                                              tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_items_tenant")
+  lab_tests                                            lab_tests       @relation(fields: [test_id], references: [test_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_items_test")
+  users_lab_test_items_verified_byTousers              users?          @relation("lab_test_items_verified_byTousers", fields: [verified_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_items_verifier")
+
+  @@index([tenant_id, order_id], map: "idx_lab_test_items_order")
+  @@index([tenant_id, test_id, status], map: "idx_lab_test_items_test")
+  @@index([tenant_id, is_critical, critical_acknowledged_at], map: "idx_lab_items_critical")
+}
+
+model lab_test_orders {
+  order_id                                         BigInt           @id @default(autoincrement())
+  tenant_id                                        BigInt
+  facility_id                                      BigInt?
+  order_number                                     String           @unique @db.VarChar(50)
+  patient_id                                       BigInt
+  visit_id                                         BigInt?
+  admission_id                                     BigInt?
+  order_date                                       DateTime?        @default(now()) @db.Timestamp(6)
+  ordering_doctor_id                               BigInt
+  priority                                         priority_level?  @default(normal)
+  status                                           order_status?    @default(pending)
+  sample_collected_at                              DateTime?        @db.Timestamp(6)
+  sample_collected_by                              BigInt?
+  created_at                                       DateTime?        @default(now()) @db.Timestamp(6)
+  rejected_at                                      DateTime?        @db.Timestamp(6)
+  rejected_by                                      BigInt?
+  rejection_reason                                 String?          @db.VarChar(500)
+  lab_test_items                                   lab_test_items[]
+  ipd_admissions                                   ipd_admissions?  @relation(fields: [admission_id], references: [admission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_admission")
+  users_lab_test_orders_sample_collected_byTousers users?           @relation("lab_test_orders_sample_collected_byTousers", fields: [sample_collected_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_collector")
+  users_lab_test_orders_ordering_doctor_idTousers  users            @relation("lab_test_orders_ordering_doctor_idTousers", fields: [ordering_doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_doctor")
+  facilities                                       facilities?      @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_facility")
+  patients                                         patients         @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_patient")
+  users_lab_test_orders_rejected_byTousers         users?           @relation("lab_test_orders_rejected_byTousers", fields: [rejected_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_rejector")
+  tenants                                          tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_tenant")
+  opd_visits                                       opd_visits?      @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_lab_orders_visit")
+
+  @@unique([tenant_id, order_number], map: "idx_lab_order_number")
+  @@index([tenant_id, admission_id], map: "idx_lab_admission")
+  @@index([tenant_id, patient_id, order_date], map: "idx_lab_patient_date")
+  @@index([tenant_id, status, order_date], map: "idx_lab_status_date")
+  @@index([tenant_id, visit_id], map: "idx_lab_visit")
+  @@index([tenant_id, rejected_at], map: "idx_lab_orders_rejected")
+}
+
+model lab_tests {
+  test_id         Int              @id @default(autoincrement())
+  tenant_id       BigInt
+  test_code       String           @unique @db.VarChar(50)
+  test_name       String           @db.VarChar(255)
+  test_category   String?          @db.VarChar(100)
+  sample_type     String?          @db.VarChar(100)
+  turnaround_time Int?
+  price           Decimal?         @db.Decimal(10, 2)
+  is_active       Boolean?         @default(true)
+  created_at      DateTime?        @default(now()) @db.Timestamp(6)
+  lab_test_items  lab_test_items[]
+  tenants         tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_tests_tenant")
+
+  @@unique([tenant_id, test_code], map: "idx_lab_tests_code")
+  @@index([tenant_id, test_category], map: "idx_lab_tests_category")
+}
+
+model leave_applications {
+  leave_id       BigInt         @id @default(autoincrement())
+  tenant_id      BigInt
+  staff_id       BigInt
+  leave_type     String         @db.VarChar(50)
+  start_date     DateTime       @db.Date
+  end_date       DateTime       @db.Date
+  total_days     Int
+  reason         String?
+  status         leave_status?  @default(pending)
+  applied_on     DateTime?      @default(now()) @db.Timestamp(6)
+  approved_by    BigInt?
+  approved_on    DateTime?      @db.Timestamp(6)
+  remarks        String?
+  users          users?         @relation(fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_leave_approved_by")
+  staff_profiles staff_profiles @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_leave_staff")
+  tenants        tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_leave_tenant")
+
+  @@index([tenant_id, staff_id, start_date], map: "idx_leave_staff")
+  @@index([tenant_id, status], map: "idx_leave_status")
+}
+
+model linen_inventory {
+  inventory_id  BigInt      @id @default(autoincrement())
+  tenant_id     BigInt
+  linen_type_id Int
+  location      String?     @db.VarChar(100)
+  clean_stock   Int?        @default(0)
+  soiled_stock  Int?        @default(0)
+  damaged_stock Int?        @default(0)
+  last_updated  DateTime?   @default(now()) @db.Timestamp(6)
+  tenants       tenants     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_inventory_tenant")
+  linen_types   linen_types @relation(fields: [linen_type_id], references: [linen_type_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_inventory_type")
+
+  @@index([tenant_id, linen_type_id, location], map: "idx_linen_inventory")
+}
+
+model linen_requests {
+  request_id     BigInt          @id @default(autoincrement())
+  tenant_id      BigInt
+  request_number String          @unique @db.VarChar(50)
+  ward_id        Int?
+  department_id  Int?
+  linen_type_id  Int
+  quantity       Int
+  urgency        priority_level? @default(normal)
+  requested_by   BigInt?
+  request_time   DateTime?       @default(now()) @db.Timestamp(6)
+  status         request_status? @default(pending)
+  completed_at   DateTime?       @db.Timestamp(6)
+  created_at     DateTime?       @default(now()) @db.Timestamp(6)
+  departments    departments?    @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_requests_dept")
+  users          users?          @relation(fields: [requested_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_requests_requester")
+  tenants        tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_requests_tenant")
+  linen_types    linen_types     @relation(fields: [linen_type_id], references: [linen_type_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_requests_type")
+  wards          wards?          @relation(fields: [ward_id], references: [ward_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_requests_ward")
+
+  @@unique([tenant_id, request_number], map: "idx_linen_request_number")
+  @@index([tenant_id, status, request_time], map: "idx_linen_status")
+}
+
+model linen_types {
+  linen_type_id   Int               @id @default(autoincrement())
+  tenant_id       BigInt
+  linen_name      String            @db.VarChar(100)
+  linen_code      String            @unique @db.VarChar(50)
+  description     String?
+  is_active       Boolean?          @default(true)
+  created_at      DateTime?         @default(now()) @db.Timestamp(6)
+  linen_inventory linen_inventory[]
+  linen_requests  linen_requests[]
+  tenants         tenants           @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_linen_types_tenant")
+  washing_batches washing_batches[]
+
+  @@unique([tenant_id, linen_code], map: "idx_linen_code")
+}
+
+model opd_consultations {
+  consultation_id         BigInt     @id @default(autoincrement())
+  tenant_id               BigInt
+  visit_id                BigInt     @unique
+  chief_complaint         String?
+  history_present_illness String?
+  past_medical_history    String?
+  past_surgical_history   String?
+  family_history          String?
+  social_history          String?
+  examination_findings    String?
+  provisional_diagnosis   String?
+  final_diagnosis         String?
+  icd_codes               String[]   @db.VarChar(255)
+  clinical_notes          String?
+  follow_up_date          DateTime?  @db.Date
+  follow_up_instructions  String?
+  doctor_id               BigInt
+  created_at              DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at              DateTime?  @default(now()) @db.Timestamp(6)
+  vitals                  Json?
+  users                   users      @relation(fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_consultations_doctor")
+  tenants                 tenants    @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_consultations_tenant")
+  opd_visits              opd_visits @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_consultations_visit")
+
+  @@unique([tenant_id, visit_id], map: "idx_consultations_visit")
+  @@index([tenant_id, doctor_id, created_at], map: "idx_consultations_doctor")
+}
+
+model opd_visits {
+  visit_id              BigInt                   @id @default(autoincrement())
+  tenant_id             BigInt
+  facility_id           BigInt?
+  visit_number          String                   @unique @db.VarChar(50)
+  patient_id            BigInt
+  visit_date            DateTime                 @db.Date
+  visit_time            DateTime                 @db.Time(6)
+  department_id         Int?
+  doctor_id             BigInt?
+  visit_type            visit_type
+  priority              priority_level?          @default(normal)
+  token_number          Int?
+  appointment_id        BigInt?
+  referral_source       String?                  @db.VarChar(100)
+  reason_for_visit      String?
+  status                visit_status?            @default(waiting)
+  checked_in_at         DateTime?                @db.Timestamp(6)
+  consultation_start_at DateTime?                @db.Timestamp(6)
+  consultation_end_at   DateTime?                @db.Timestamp(6)
+  created_at            DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at            DateTime?                @default(now()) @db.Timestamp(6)
+  bills                 bills[]
+  lab_test_orders       lab_test_orders[]
+  opd_consultations     opd_consultations?
+  appointments          appointments?            @relation(fields: [appointment_id], references: [appointment_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visits_appointment")
+  departments           departments?             @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visits_department")
+  users                 users?                   @relation(fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visits_doctor")
+  facilities            facilities?              @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visits_facility")
+  patients              patients                 @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visits_patient")
+  tenants               tenants                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visits_tenant")
+  prescriptions         prescriptions[]
+  radiology_orders      radiology_orders[]
+  rehabilitationEntries rehabilitation_entries[]
+  therapy_orders        therapy_orders[]
+
+  @@unique([tenant_id, visit_number], map: "idx_opd_visit_number")
+  @@index([tenant_id, created_at], map: "idx_opd_created")
+  @@index([tenant_id, visit_date, status], map: "idx_opd_date_status")
+  @@index([tenant_id, department_id, visit_date], map: "idx_opd_dept_date")
+  @@index([tenant_id, doctor_id, visit_date, status], map: "idx_opd_doctor_queue")
+  @@index([tenant_id, patient_id, visit_date], map: "idx_opd_patient_date")
+}
+
+model patient_allergies {
+  allergy_id      BigInt    @id @default(autoincrement())
+  tenant_id       BigInt
+  patient_id      BigInt
+  allergen        String    @db.VarChar(255)
+  allergy_type    String?   @db.VarChar(50)
+  severity        String?   @db.VarChar(50)
+  reaction        String?
+  identified_date DateTime? @db.Date
+  is_active       Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  patients        patients  @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_allergies_patient")
+  tenants         tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_allergies_tenant")
+
+  @@index([tenant_id, patient_id, is_active], map: "idx_allergies_patient")
+}
+
+model patient_disabilities {
+  disability_id      BigInt    @id @default(autoincrement())
+  tenant_id          BigInt
+  patient_id         BigInt
+  disability_type    String    @db.VarChar(100)
+  disability_subtype String?   @db.VarChar(100)
+  severity           String?   @db.VarChar(50)
+  onset_type         String?   @db.VarChar(50)
+  certificate_number String?   @db.VarChar(100)
+  issuing_authority  String?   @db.VarChar(255)
+  issue_date         DateTime? @db.Date
+  expiry_date        DateTime? @db.Date
+  certificate_url    String?   @db.VarChar(500)
+  assistive_devices  String?
+  support_needs      String?
+  is_active          Boolean?  @default(true)
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  patients           patients  @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_disabilities_patient")
+  tenants            tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_disabilities_tenant")
+
+  @@index([tenant_id, patient_id, is_active], map: "idx_disabilities_patient")
+  @@index([tenant_id, disability_type], map: "idx_disabilities_type")
+}
+
+model rehabilitation_entries {
+  entry_id            BigInt      @id @default(autoincrement())
+  tenant_id           BigInt
+  patient_id          BigInt
+  visit_id            BigInt?
+  therapist_id        BigInt?
+  assessment_date     DateTime    @default(now()) @db.Timestamp(6)
+  referring_doctor    String?     @db.VarChar(100)
+  diagnosis           String?     @db.VarChar(255)
+  baseline_status     String?
+  impairments         String?
+  goal_description    String?
+  goal_type           String?     @db.VarChar(50)
+  target_date         DateTime?   @db.Date
+  review_date         DateTime?   @db.Date
+  review_outcome      String?     @db.VarChar(255)
+  device_type         String?     @db.VarChar(100)
+  side_region         String?     @db.VarChar(50)
+  fitting_details     String?
+  hep_date_given      DateTime?   @db.Date
+  hep_frequency       String?     @db.VarChar(100)
+  hep_exercise_list   String?
+  session_type        String?     @db.VarChar(50)
+  duration_minutes    Int?
+  intensity           String?     @db.VarChar(50)
+  interventions       String?
+  patient_response    String?
+  therapist_signature String?     @db.VarChar(100)
+  created_at          DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?   @updatedAt @db.Timestamp(6)
+  medicine            String?     @db.VarChar(255)
+  next_checkup        DateTime?   @db.Date
+  prescribed_date     DateTime?   @db.Date
+  status              String?     @db.VarChar(50)
+  therapy_type        String?     @db.VarChar(10)
+  overall_score       Int?        @default(0)
+  progress_scores     Json?       @default("{}")
+  session_number      Int?        @default(1)
+  patients            patients    @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rehab_patient")
+  tenants             tenants     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rehab_tenant")
+  users               users?      @relation(fields: [therapist_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rehab_therapist")
+  opd_visits          opd_visits? @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rehab_visit")
+
+  @@index([tenant_id, patient_id], map: "idx_rehab_patient")
+  @@index([tenant_id, assessment_date], map: "idx_rehab_date")
+}
+
+model patients {
+  patient_id                 BigInt                   @id @default(autoincrement())
+  tenant_id                  BigInt
+  facility_id                BigInt?
+  upid                       String                   @unique @db.VarChar(50)
+  first_name                 String                   @db.VarChar(100)
+  middle_name                String?                  @db.VarChar(100)
+  last_name                  String?                  @db.VarChar(100)
+  date_of_birth              DateTime                 @db.Date
+  gender                     gender_type
+  blood_group                String?                  @db.VarChar(10)
+  mobile_primary             String?                  @db.VarChar(20)
+  mobile_secondary           String?                  @db.VarChar(20)
+  email                      String?                  @db.VarChar(255)
+  aadhaar_number             String?                  @unique @db.VarChar(12)
+  address_line1              String?                  @db.VarChar(255)
+  address_line2              String?                  @db.VarChar(255)
+  city                       String?                  @db.VarChar(100)
+  state                      String?                  @db.VarChar(100)
+  pincode                    String?                  @db.VarChar(10)
+  emergency_contact_name     String?                  @db.VarChar(100)
+  emergency_contact_phone    String?                  @db.VarChar(20)
+  emergency_contact_relation String?                  @db.VarChar(50)
+  photo_url                  String?                  @db.VarChar(500)
+  is_divyangjan              Boolean?                 @default(false)
+  registration_date          DateTime?                @default(now()) @db.Timestamp(6)
+  created_at                 DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime?                @default(now()) @db.Timestamp(6)
+  arrival_mode               String?                  @db.VarChar(50)
+  arrival_time               DateTime?                @db.Timestamp(6)
+  brought_by_contact         String?                  @db.VarChar(20)
+  complaint_notes            String?
+  emergency_case_number      String?                  @unique @db.VarChar(50)
+  emergency_type             String?                  @db.VarChar(50)
+  is_emergency               Boolean?                 @default(false)
+  is_unknown_patient         Boolean?                 @default(false)
+  triage_priority            String?                  @db.VarChar(20)
+  vitals                     Json?
+  appointments               appointments[]
+  bills                      bills[]
+  diet_entries               diet_entries[]
+  discharge_summaries        discharge_summaries[]
+  ipd_admissions             ipd_admissions[]
+  lab_test_orders            lab_test_orders[]
+  opd_visits                 opd_visits[]
+  patient_allergies          patient_allergies[]
+  patient_disabilities       patient_disabilities[]
+  facilities                 facilities?              @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_patients_facility")
+  tenants                    tenants                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_patients_tenant")
+  payments                   payments[]
+  pharmacy_sales             pharmacy_sales[]
+  prescriptions              prescriptions[]
+  radiology_orders           radiology_orders[]
+  rehabilitationEntries      rehabilitation_entries[]
+  therapy_orders             therapy_orders[]
+  therapy_sessions           therapy_sessions[]
+  ambulance_calls            ambulance_calls[]
+
+  @@unique([tenant_id, upid], map: "idx_patients_upid")
+  @@index([tenant_id, aadhaar_number], map: "idx_patients_aadhaar")
+  @@index([tenant_id, created_at], map: "idx_patients_created")
+  @@index([tenant_id, is_divyangjan], map: "idx_patients_divyangjan")
+  @@index([tenant_id, is_emergency], map: "idx_patients_emergency")
+  @@index([tenant_id, mobile_primary], map: "idx_patients_mobile")
+  @@index([tenant_id, first_name, last_name], map: "idx_patients_name")
+}
+
+model payments {
+  payment_id            BigInt       @id @default(autoincrement())
+  tenant_id             BigInt
+  facility_id           BigInt?
+  payment_number        String       @unique @db.VarChar(50)
+  bill_id               BigInt
+  patient_id            BigInt
+  payment_date          DateTime?    @default(now()) @db.Timestamp(6)
+  amount                Decimal      @db.Decimal(12, 2)
+  payment_mode          payment_mode
+  transaction_reference String?      @db.VarChar(255)
+  received_by           BigInt?
+  remarks               String?
+  created_at            DateTime?    @default(now()) @db.Timestamp(6)
+  bills                 bills        @relation(fields: [bill_id], references: [bill_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payments_bill")
+  facilities            facilities?  @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payments_facility")
+  patients              patients     @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payments_patient")
+  users                 users?       @relation(fields: [received_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payments_receiver")
+  tenants               tenants      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payments_tenant")
+
+  @@unique([tenant_id, payment_number], map: "idx_payments_number")
+  @@index([tenant_id, bill_id], map: "idx_payments_bill")
+  @@index([tenant_id, payment_date], map: "idx_payments_date")
+  @@index([tenant_id, patient_id, payment_date], map: "idx_payments_patient")
+}
+
+model permissions {
+  permission_id    Int                @id @default(autoincrement())
+  tenant_id        BigInt
+  permission_name  String             @db.VarChar(100)
+  permission_code  String             @db.VarChar(50)
+  module           String             @db.VarChar(50)
+  description      String?
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  tenants          tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_permissions_tenant")
+  role_permissions role_permissions[]
+
+  @@unique([tenant_id, permission_code], map: "idx_permissions_code")
+  @@index([tenant_id, module], map: "idx_permissions_module")
+}
+
+model pharmacy_sale_items {
+  sale_item_id   BigInt         @id @default(autoincrement())
+  tenant_id      BigInt
+  sale_id        BigInt
+  stock_id       BigInt
+  drug_id        Int
+  quantity       Int
+  unit_price     Decimal        @db.Decimal(10, 2)
+  total_price    Decimal        @db.Decimal(12, 2)
+  discount       Decimal?       @default(0) @db.Decimal(10, 2)
+  created_at     DateTime?      @default(now()) @db.Timestamp(6)
+  drugs          drugs          @relation(fields: [drug_id], references: [drug_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sale_items_drug")
+  pharmacy_sales pharmacy_sales @relation(fields: [sale_id], references: [sale_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sale_items_sale")
+  pharmacy_stock pharmacy_stock @relation(fields: [stock_id], references: [stock_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sale_items_stock")
+  tenants        tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sale_items_tenant")
+
+  @@index([tenant_id, sale_id], map: "idx_pharmacy_sale_items")
+}
+
+model pharmacy_sales {
+  sale_id             BigInt                @id @default(autoincrement())
+  tenant_id           BigInt
+  facility_id         BigInt?
+  sale_number         String                @unique @db.VarChar(50)
+  patient_id          BigInt?
+  prescription_id     BigInt?
+  sale_date           DateTime?             @default(now()) @db.Timestamp(6)
+  total_amount        Decimal               @db.Decimal(12, 2)
+  discount_amount     Decimal?              @default(0) @db.Decimal(12, 2)
+  net_amount          Decimal               @db.Decimal(12, 2)
+  payment_mode        payment_mode?
+  sold_by             BigInt?
+  created_at          DateTime?             @default(now()) @db.Timestamp(6)
+  pharmacy_sale_items pharmacy_sale_items[]
+  facilities          facilities?           @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_facility")
+  patients            patients?             @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_patient")
+  prescriptions       prescriptions?        @relation(fields: [prescription_id], references: [prescription_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_prescription")
+  users               users?                @relation(fields: [sold_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_seller")
+  tenants             tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_tenant")
+
+  @@unique([tenant_id, sale_number], map: "idx_pharmacy_sales_number")
+  @@index([tenant_id, sale_date], map: "idx_pharmacy_sales_date")
+  @@index([tenant_id, patient_id, sale_date], map: "idx_pharmacy_sales_patient")
+}
+
+model pharmacy_stock {
+  stock_id                                 BigInt                @id @default(autoincrement())
+  tenant_id                                BigInt
+  facility_id                              BigInt?
+  drug_id                                  Int
+  batch_number                             String                @db.VarChar(100)
+  expiry_date                              DateTime              @db.Date
+  quantity_available                       Int                   @default(0)
+  unit_price                               Decimal?              @db.Decimal(10, 2)
+  mrp                                      Decimal?              @db.Decimal(10, 2)
+  location                                 String?               @db.VarChar(100)
+  created_at                               DateTime?             @default(now()) @db.Timestamp(6)
+  updated_at                               DateTime?             @default(now()) @db.Timestamp(6)
+  reason_for_adjustment                    String?               @db.VarChar(500)
+  requested_by                             BigInt?
+  approved_by                              BigInt?
+  pharmacy_sale_items                      pharmacy_sale_items[]
+  users_pharmacy_stock_approved_byTousers  users?                @relation("pharmacy_stock_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stock_approved_by")
+  drugs                                    drugs                 @relation(fields: [drug_id], references: [drug_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stock_drug")
+  facilities                               facilities?           @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stock_facility")
+  users_pharmacy_stock_requested_byTousers users?                @relation("pharmacy_stock_requested_byTousers", fields: [requested_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stock_requested_by")
+  tenants                                  tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_stock_tenant")
+
+  @@index([tenant_id, expiry_date], map: "idx_pharmacy_expiry")
+  @@index([tenant_id, drug_id, batch_number], map: "idx_pharmacy_stock")
+}
+
+model prescription_items {
+  prescription_item_id BigInt        @id @default(autoincrement())
+  tenant_id            BigInt
+  prescription_id      BigInt
+  drug_id              Int?
+  drug_name            String        @db.VarChar(255)
+  strength             String?       @db.VarChar(100)
+  dosage_form          String?       @db.VarChar(50)
+  route                String?       @db.VarChar(50)
+  frequency            String?       @db.VarChar(100)
+  duration             String?       @db.VarChar(100)
+  quantity             Int?
+  instructions         String?
+  is_free_text         Boolean?      @default(false)
+  created_at           DateTime?     @default(now()) @db.Timestamp(6)
+  drugs                drugs?        @relation(fields: [drug_id], references: [drug_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescription_items_drug")
+  prescriptions        prescriptions @relation(fields: [prescription_id], references: [prescription_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescription_items_prescription")
+  tenants              tenants       @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescription_items_tenant")
+
+  @@index([tenant_id, drug_id], map: "idx_prescription_drug")
+  @@index([tenant_id, prescription_id], map: "idx_prescription_items")
+}
+
+model prescriptions {
+  prescription_id                        BigInt               @id @default(autoincrement())
+  tenant_id                              BigInt
+  visit_id                               BigInt
+  patient_id                             BigInt
+  doctor_id                              BigInt
+  prescription_date                      DateTime?            @default(now()) @db.Timestamp(6)
+  is_active                              Boolean?             @default(true)
+  created_at                             DateTime?            @default(now()) @db.Timestamp(6)
+  approved_at                            DateTime?            @db.Timestamp(6)
+  approved_by                            BigInt?
+  priority                               priority_level?      @default(normal)
+  status                                 prescription_status? @default(pending)
+  rejected_by                            BigInt?
+  rejected_at                            DateTime?            @db.Timestamp(6)
+  pharmacy_sales                         pharmacy_sales[]
+  prescription_items                     prescription_items[]
+  users_prescriptions_approved_byTousers users?               @relation("prescriptions_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescriptions_approved_by")
+  users_prescriptions_doctor_idTousers   users                @relation("prescriptions_doctor_idTousers", fields: [doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescriptions_doctor")
+  patients                               patients             @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescriptions_patient")
+  users_prescriptions_rejected_byTousers users?               @relation("prescriptions_rejected_byTousers", fields: [rejected_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescriptions_rejected_by")
+  tenants                                tenants              @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescriptions_tenant")
+  opd_visits                             opd_visits           @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prescriptions_visit")
+
+  @@index([tenant_id, patient_id, prescription_date], map: "idx_prescriptions_patient")
+  @@index([tenant_id, visit_id], map: "idx_prescriptions_visit")
+  @@index([tenant_id, status, priority], map: "idx_prescriptions_status_priority")
+}
+
+model radiology_order_items {
+  item_id                                           BigInt            @id @default(autoincrement())
+  tenant_id                                         BigInt
+  order_id                                          BigInt
+  study_id                                          Int
+  study_name                                        String            @db.VarChar(255)
+  body_part                                         String?           @db.VarChar(100)
+  clinical_indication                               String?
+  status                                            order_status?     @default(pending)
+  scheduled_at                                      DateTime?         @db.Timestamp(6)
+  performed_at                                      DateTime?         @db.Timestamp(6)
+  performed_by                                      BigInt?
+  radiologist_id                                    BigInt?
+  report_text                                       String?
+  impressions                                       String?
+  report_url                                        String?           @db.VarChar(500)
+  images_url                                        String[]          @db.VarChar(500)
+  verified_at                                       DateTime?         @db.Timestamp(6)
+  created_at                                        DateTime?         @default(now()) @db.Timestamp(6)
+  is_critical                                       Boolean?          @default(false)
+  radiology_orders                                  radiology_orders  @relation(fields: [order_id], references: [order_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_items_order")
+  users_radiology_order_items_performed_byTousers   users?            @relation("radiology_order_items_performed_byTousers", fields: [performed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_items_performer")
+  users_radiology_order_items_radiologist_idTousers users?            @relation("radiology_order_items_radiologist_idTousers", fields: [radiologist_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_items_radiologist")
+  radiology_studies                                 radiology_studies @relation(fields: [study_id], references: [study_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_items_study")
+  tenants                                           tenants           @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_items_tenant")
+
+  @@index([tenant_id, order_id], map: "idx_radio_items_order")
+  @@index([tenant_id, study_id, status], map: "idx_radio_items_study")
+}
+
+model radiology_orders {
+  order_id                                         BigInt                  @id @default(autoincrement())
+  tenant_id                                        BigInt
+  facility_id                                      BigInt?
+  order_number                                     String                  @unique @db.VarChar(50)
+  patient_id                                       BigInt
+  visit_id                                         BigInt?
+  admission_id                                     BigInt?
+  order_date                                       DateTime?               @default(now()) @db.Timestamp(6)
+  ordering_doctor_id                               BigInt
+  priority                                         priority_level?         @default(normal)
+  status                                           order_status?           @default(pending)
+  created_at                                       DateTime?               @default(now()) @db.Timestamp(6)
+  notes                                            String?
+  cancelled_by                                     BigInt?
+  cancelled_at                                     DateTime?               @db.Timestamp(6)
+  cancelled_reason                                 String?
+  radiology_order_items                            radiology_order_items[]
+  ipd_admissions                                   ipd_admissions?         @relation(fields: [admission_id], references: [admission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_admission")
+  users_radiology_orders_cancelled_byTousers       users?                  @relation("radiology_orders_cancelled_byTousers", fields: [cancelled_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_cancelled_by")
+  users_radiology_orders_ordering_doctor_idTousers users                   @relation("radiology_orders_ordering_doctor_idTousers", fields: [ordering_doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_doctor")
+  facilities                                       facilities?             @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_facility")
+  patients                                         patients                @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_patient")
+  tenants                                          tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_tenant")
+  opd_visits                                       opd_visits?             @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_orders_visit")
+
+  @@unique([tenant_id, order_number], map: "idx_radio_order_number")
+  @@index([tenant_id, patient_id, order_date], map: "idx_radio_patient_date")
+  @@index([tenant_id, status, order_date], map: "idx_radio_status_date")
+}
+
+model radiology_studies {
+  study_id              Int                     @id @default(autoincrement())
+  tenant_id             BigInt
+  study_code            String                  @unique @db.VarChar(50)
+  study_name            String                  @db.VarChar(255)
+  modality              String?                 @db.VarChar(50)
+  body_part             String?                 @db.VarChar(100)
+  price                 Decimal?                @db.Decimal(10, 2)
+  is_active             Boolean?                @default(true)
+  created_at            DateTime?               @default(now()) @db.Timestamp(6)
+  radiology_order_items radiology_order_items[]
+  tenants               tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_radio_studies_tenant")
+
+  @@unique([tenant_id, study_code], map: "idx_radio_studies_code")
+  @@index([tenant_id, modality], map: "idx_radio_studies_modality")
+}
+
+model role_permissions {
+  role_permission_id Int         @id @default(autoincrement())
+  tenant_id          BigInt
+  role_id            Int
+  permission_id      Int
+  created_at         DateTime?   @default(now()) @db.Timestamp(6)
+  permissions        permissions @relation(fields: [permission_id], references: [permission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_role_permissions_permission")
+  roles              roles       @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_role_permissions_role")
+  tenants            tenants     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_role_permissions_tenant")
+
+  @@unique([tenant_id, role_id, permission_id], map: "idx_role_permissions_unique")
+}
+
+model roles {
+  role_id          Int                @id @default(autoincrement())
+  tenant_id        BigInt
+  role_name        String             @db.VarChar(100)
+  role_code        String             @db.VarChar(50)
+  description      String?
+  is_active        Boolean?           @default(true)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  role_permissions role_permissions[]
+  tenants          tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_tenant")
+  user_roles       user_roles[]
+
+  @@unique([tenant_id, role_code], map: "idx_roles_code")
+  @@index([tenant_id, is_active], map: "idx_roles_active")
+}
+
+model security_incidents {
+  incident_id                                 BigInt           @id @default(autoincrement())
+  tenant_id                                   BigInt
+  incident_number                             String           @unique @db.VarChar(50)
+  incident_type                               String           @db.VarChar(100)
+  incident_date                               DateTime?        @default(now()) @db.Timestamp(6)
+  location                                    String?          @db.VarChar(255)
+  description                                 String
+  severity                                    String?          @db.VarChar(50)
+  reported_by                                 BigInt?
+  assigned_to                                 BigInt?
+  status                                      incident_status? @default(open)
+  resolution                                  String?
+  resolved_at                                 DateTime?        @db.Timestamp(6)
+  created_at                                  DateTime?        @default(now()) @db.Timestamp(6)
+  users_security_incidents_assigned_toTousers users?           @relation("security_incidents_assigned_toTousers", fields: [assigned_to], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_incidents_assignee")
+  users_security_incidents_reported_byTousers users?           @relation("security_incidents_reported_byTousers", fields: [reported_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_incidents_reporter")
+  tenants                                     tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_incidents_tenant")
+
+  @@unique([tenant_id, incident_number], map: "idx_security_incident_number")
+  @@index([tenant_id, status, incident_date], map: "idx_security_status")
+}
+
+model staff_profiles {
+  profile_id                BigInt                          @id @default(autoincrement())
+  tenant_id                 BigInt
+  user_id                   BigInt                          @unique
+  employee_code             String                          @unique @db.VarChar(50)
+  first_name                String                          @db.VarChar(100)
+  last_name                 String                          @db.VarChar(100)
+  designation               String?                         @db.VarChar(100)
+  department_id             Int?
+  specialization            String?                         @db.VarChar(255)
+  qualification             String?                         @db.VarChar(255)
+  registration_number       String?                         @db.VarChar(100)
+  date_of_joining           DateTime?                       @db.Date
+  contact_number            String?                         @db.VarChar(20)
+  emergency_contact         String?                         @db.VarChar(20)
+  photo_url                 String?                         @db.VarChar(500)
+  is_active                 Boolean?                        @default(true)
+  created_at                DateTime?                       @default(now()) @db.Timestamp(6)
+  updated_at                DateTime?                       @default(now()) @db.Timestamp(6)
+  current_status            String?                         @default("offline")
+  room_number               String?
+  request_notes             String?
+  request_status            staff_request_status?           @default(pending)
+  request_type              staff_request_type?
+  reviewed_at               DateTime?                       @db.Timestamp(6)
+  reviewed_by               BigInt?
+  submitted_by              BigInt?
+  attendance_records        attendance_records[]
+  biometric_attendance_logs biometric_attendance_logs[]
+  duty_roster               duty_roster[]
+  leave_applications        leave_applications[]
+  payroll_run_items         payroll_run_items[]
+  payslips                  payslips[]
+  staff_bank_details        staff_bank_details[]
+  departments               departments?                    @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_department")
+  tenants                   tenants                         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_tenant")
+  users                     users                           @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_user")
+  reviewed_by_user          users?                          @relation("staff_reviewed_by", fields: [reviewed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  submitted_by_user         users?                          @relation("staff_submitted_by", fields: [submitted_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  staff_request_documents   staff_request_documents[]
+  staff_salary_profiles     staff_salary_profiles[]
+  staff_tax_profiles        staff_tax_profiles?
+
+  @@unique([tenant_id, user_id], map: "idx_staff_user")
+  @@index([tenant_id, department_id], map: "idx_staff_department")
+  @@index([tenant_id, employee_code], map: "idx_staff_employee_code")
+}
+
+model staff_request_documents {
+  document_id   BigInt         @id @default(autoincrement())
+  profile_id    BigInt
+  document_type String         @db.VarChar(100)
+  file_url      String         @db.VarChar(500)
+  file_name     String         @db.VarChar(255)
+  file_size     BigInt?
+  uploaded_at   DateTime?      @default(now()) @db.Timestamp(6)
+  staff_profile staff_profiles @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_staff_request_documents_profile")
+
+  @@index([profile_id], map: "idx_staff_request_documents_profile")
+}
+
+model system_notifications {
+  notification_id   BigInt    @id @default(autoincrement())
+  tenant_id         BigInt
+  user_id           BigInt?
+  notification_type String    @db.VarChar(50)
+  title             String    @db.VarChar(255)
+  message           String
+  reference_type    String?   @db.VarChar(50)
+  reference_id      BigInt?
+  is_read           Boolean?  @default(false)
+  read_at           DateTime? @db.Timestamp(6)
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  tenants           tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notifications_tenant")
+  users             users?    @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notifications_user")
+
+  @@index([tenant_id, user_id, is_read, created_at], map: "idx_notifications_user")
+}
+
+model system_settings {
+  setting_id    BigInt    @id @default(autoincrement())
+  setting_key   String    @unique @db.VarChar(100)
+  setting_value String?
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model tenant_settings {
+  setting_id    BigInt    @id @default(autoincrement())
+  tenant_id     BigInt
+  setting_key   String    @db.VarChar(100)
+  setting_value String?
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  tenants       tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_tenant_settings_tenant")
+
+  @@unique([tenant_id, setting_key], map: "idx_tenant_settings_key")
+}
+
+model tenants {
+  tenant_id                 BigInt                      @id @default(autoincrement())
+  tenant_code               String                      @unique(map: "idx_tenants_code") @db.VarChar(50)
+  tenant_name               String                      @db.VarChar(255)
+  status                    tenant_status?              @default(active)
+  timezone                  String?                     @default("Asia/Kolkata") @db.VarChar(50)
+  created_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  updated_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  appointments              appointments[]
+  audit_logs                audit_logs[]
+  backup_policies           backup_policies[]
+  backup_runs               backup_runs[]
+  beds                      beds[]
+  bill_items                bill_items[]
+  bills                     bills[]
+  connection_pool_settings  connection_pool_settings[]
+  cssd_instrument_sets      cssd_instrument_sets[]
+  cssd_requests             cssd_requests[]
+  cssd_sterilization_cycles cssd_sterilization_cycles[]
+  data_retention_policies   data_retention_policies[]
+  departments               departments[]
+  diet_entries              diet_entries[]
+  discharge_summaries       discharge_summaries[]
+  drugs                     drugs[]
+  duty_roster               duty_roster[]
+  facilities                facilities[]
+  grn                       grn[]
+  inventory_categories      inventory_categories[]
+  inventory_items           inventory_items[]
+  inventory_transactions    inventory_transactions[]
+  ipd_admissions            ipd_admissions[]
+  ipd_progress_notes        ipd_progress_notes[]
+  lab_test_items            lab_test_items[]
+  lab_test_orders           lab_test_orders[]
+  lab_tests                 lab_tests[]
+  leave_applications        leave_applications[]
+  linen_inventory           linen_inventory[]
+  linen_requests            linen_requests[]
+  linen_types               linen_types[]
+  opd_consultations         opd_consultations[]
+  opd_visits                opd_visits[]
+  patient_allergies         patient_allergies[]
+  patient_disabilities      patient_disabilities[]
+  patients                  patients[]
+  payments                  payments[]
+  payroll_cycles            payroll_cycles[]
+  payroll_runs              payroll_runs[]
+  payslips                  payslips[]
+  permissions               permissions[]
+  pharmacy_sale_items       pharmacy_sale_items[]
+  pharmacy_sales            pharmacy_sales[]
+  pharmacy_stock            pharmacy_stock[]
+  prescription_items        prescription_items[]
+  prescriptions             prescriptions[]
+  purchase_orders           purchase_orders[]
+  purchase_order_items      purchase_order_items[]
+  radiology_order_items     radiology_order_items[]
+  radiology_orders          radiology_orders[]
+  radiology_studies         radiology_studies[]
+  rehabilitationEntries     rehabilitation_entries[]
+  role_permissions          role_permissions[]
+  roles                     roles[]
+  salary_components         salary_components[]
+  security_incidents        security_incidents[]
+  staff_bank_details        staff_bank_details[]
+  staff_profiles            staff_profiles[]
+  staff_salary_profiles     staff_salary_profiles[]
+  staff_tax_profiles        staff_tax_profiles[]
+  supplier_categories       supplier_categories[]
+  suppliers                 suppliers[]
+  system_notifications      system_notifications[]
+  attendance_records        attendance_records[]
+  holiday_calendar          holiday_calendar[]
+  biometric_attendance_logs    biometric_attendance_logs[]
+  tenant_settings              tenant_settings[]
+  therapy_orders               therapy_orders[]
+  therapy_sessions             therapy_sessions[]
+  user_roles                   user_roles[]
+  users                        users[]
+  visitor_entries              visitor_entries[]
+  visitor_logs                 visitor_logs[]
+  wards                        wards[]
+  washing_batches              washing_batches[]
+  ambulances                   ambulances[]
+  ambulance_drivers            ambulance_drivers[]
+  ambulance_status_logs        ambulance_status_logs[]
+  ambulance_calls              ambulance_calls[]
+  ambulance_trips              ambulance_trips[]
+  ambulance_maintenance_logs   ambulance_maintenance_logs[]
+  parking_entries              parking_entries[]
+
+  @@index([status], map: "idx_tenants_status")
+}
+
+model therapy_orders {
+  order_id           BigInt             @id @default(autoincrement())
+  tenant_id          BigInt
+  facility_id        BigInt?
+  order_number       String             @unique @db.VarChar(50)
+  patient_id         BigInt
+  visit_id           BigInt?
+  admission_id       BigInt?
+  therapy_type       therapy_type
+  order_date         DateTime?          @default(now()) @db.Timestamp(6)
+  ordering_doctor_id BigInt
+  diagnosis          String?
+  goals              String?
+  precautions        String?
+  session_count      Int?               @default(1)
+  sessions_completed Int?               @default(0)
+  priority           priority_level?    @default(normal)
+  status             order_status?      @default(pending)
+  created_at         DateTime?          @default(now()) @db.Timestamp(6)
+  ipd_admissions     ipd_admissions?    @relation(fields: [admission_id], references: [admission_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_orders_admission")
+  users              users              @relation(fields: [ordering_doctor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_orders_doctor")
+  facilities         facilities?        @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_orders_facility")
+  patients           patients           @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_orders_patient")
+  tenants            tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_orders_tenant")
+  opd_visits         opd_visits?        @relation(fields: [visit_id], references: [visit_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_orders_visit")
+  therapy_sessions   therapy_sessions[]
+
+  @@unique([tenant_id, order_number], map: "idx_therapy_order_number")
+  @@index([tenant_id, patient_id, status], map: "idx_therapy_patient")
+  @@index([tenant_id, status, order_date], map: "idx_therapy_status_date")
+}
+
+model therapy_sessions {
+  session_id         BigInt         @id @default(autoincrement())
+  tenant_id          BigInt
+  order_id           BigInt
+  patient_id         BigInt
+  session_number     Int
+  scheduled_date     DateTime?      @db.Date
+  scheduled_time     DateTime?      @db.Time(6)
+  therapist_id       BigInt?
+  session_date       DateTime?      @db.Timestamp(6)
+  duration_minutes   Int?
+  attendance_status  String?        @db.VarChar(50)
+  treatment_provided String?
+  patient_response   String?
+  progress_notes     String?
+  next_session_plan  String?
+  status             order_status?  @default(pending)
+  created_at         DateTime?      @default(now()) @db.Timestamp(6)
+  therapy_orders     therapy_orders @relation(fields: [order_id], references: [order_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_sessions_order")
+  patients           patients       @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_sessions_patient")
+  tenants            tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_sessions_tenant")
+  users              users?         @relation(fields: [therapist_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_therapy_sessions_therapist")
+
+  @@index([tenant_id, order_id, session_number], map: "idx_therapy_sessions_order")
+  @@index([tenant_id, patient_id, session_date], map: "idx_therapy_sessions_patient")
+  @@index([tenant_id, therapist_id, scheduled_date], map: "idx_therapy_sessions_therapist")
+}
+
+model user_roles {
+  user_role_id                        BigInt    @id @default(autoincrement())
+  tenant_id                           BigInt
+  user_id                             BigInt
+  role_id                             Int
+  assigned_at                         DateTime? @default(now()) @db.Timestamp(6)
+  assigned_by                         BigInt?
+  users_user_roles_assigned_byTousers users?    @relation("user_roles_assigned_byTousers", fields: [assigned_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_roles_assigned_by")
+  roles                               roles     @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_roles_role")
+  tenants                             tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_roles_tenant")
+  users_user_roles_user_idTousers     users     @relation("user_roles_user_idTousers", fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_roles_user")
+
+  @@unique([tenant_id, user_id, role_id], map: "idx_user_roles_unique")
+  @@index([tenant_id, role_id], map: "idx_user_roles_role")
+}
+
+model users {
+  user_id                                                           BigInt                      @id @default(autoincrement())
+  tenant_id                                                         BigInt
+  facility_id                                                       BigInt?
+  username                                                          String                      @unique @db.VarChar(100)
+  email                                                             String                      @unique @db.VarChar(255)
+  password_hash                                                     String                      @db.VarChar(255)
+  employee_id                                                       String?                     @unique @db.VarChar(50)
+  is_active                                                         Boolean?                    @default(true)
+  is_verified                                                       Boolean?                    @default(false)
+  last_login_at                                                     DateTime?                   @db.Timestamp(6)
+  created_at                                                        DateTime?                   @default(now()) @db.Timestamp(6)
+  updated_at                                                        DateTime?                   @default(now()) @db.Timestamp(6)
+  appointments_appointments_doctor_idTousers                        appointments[]              @relation("appointments_doctor_idTousers")
+  appointments_appointments_therapist_idTousers                     appointments[]              @relation("appointments_therapist_idTousers")
+  audit_logs                                                        audit_logs[]
+  bills                                                             bills[]
+  cssd_requests                                                     cssd_requests[]
+  cssd_sterilization_cycles                                         cssd_sterilization_cycles[]
+  departments                                                       departments[]
+  diet_entries_approved_by                                          diet_entries[]              @relation("diet_approved_by")
+  diet_entries_cancelled_by                                         diet_entries[]              @relation("diet_cancelled_by")
+  diet_entries                                                      diet_entries[]
+  discharge_summaries                                               discharge_summaries[]
+  grn_grn_approved_byTousers                                        grn[]                       @relation("grn_approved_byTousers")
+  grn_grn_received_byTousers                                        grn[]                       @relation("grn_received_byTousers")
+  inventory_transactions_inventory_transactions_issued_toTousers    inventory_transactions[]    @relation("inventory_transactions_issued_toTousers")
+  inventory_transactions_inventory_transactions_performed_byTousers inventory_transactions[]    @relation("inventory_transactions_performed_byTousers")
+  ipd_admissions                                                    ipd_admissions[]
+  ipd_progress_notes_ipd_progress_notes_doctor_idTousers            ipd_progress_notes[]        @relation("ipd_progress_notes_doctor_idTousers")
+  ipd_progress_notes_ipd_progress_notes_nurse_idTousers             ipd_progress_notes[]        @relation("ipd_progress_notes_nurse_idTousers")
+  lab_test_items_lab_test_items_critical_acknowledged_byTousers     lab_test_items[]            @relation("lab_test_items_critical_acknowledged_byTousers")
+  lab_test_items_lab_test_items_verified_byTousers                  lab_test_items[]            @relation("lab_test_items_verified_byTousers")
+  lab_test_orders_lab_test_orders_sample_collected_byTousers        lab_test_orders[]           @relation("lab_test_orders_sample_collected_byTousers")
+  lab_test_orders_lab_test_orders_ordering_doctor_idTousers         lab_test_orders[]           @relation("lab_test_orders_ordering_doctor_idTousers")
+  lab_test_orders_lab_test_orders_rejected_byTousers                lab_test_orders[]           @relation("lab_test_orders_rejected_byTousers")
+  leave_applications                                                leave_applications[]
+  linen_requests                                                    linen_requests[]
+  opd_consultations                                                 opd_consultations[]
+  opd_visits                                                        opd_visits[]
+  payments                                                          payments[]
+  payroll_cycles                                                    payroll_cycles[]
+  payroll_runs_payroll_runs_approved_byTousers                      payroll_runs[]              @relation("payroll_runs_approved_byTousers")
+  payroll_runs_payroll_runs_generated_byTousers                     payroll_runs[]              @relation("payroll_runs_generated_byTousers")
+  pharmacy_sales                                                    pharmacy_sales[]
+  pharmacy_stock_pharmacy_stock_approved_byTousers                  pharmacy_stock[]            @relation("pharmacy_stock_approved_byTousers")
+  pharmacy_stock_pharmacy_stock_requested_byTousers                 pharmacy_stock[]            @relation("pharmacy_stock_requested_byTousers")
+  prescriptions_prescriptions_approved_byTousers                    prescriptions[]             @relation("prescriptions_approved_byTousers")
+  prescriptions_prescriptions_doctor_idTousers                      prescriptions[]             @relation("prescriptions_doctor_idTousers")
+  prescriptions_prescriptions_rejected_byTousers                    prescriptions[]             @relation("prescriptions_rejected_byTousers")
+  purchase_orders_purchase_orders_approved_byTousers                purchase_orders[]           @relation("purchase_orders_approved_byTousers")
+  purchase_orders_purchase_orders_created_byTousers                 purchase_orders[]           @relation("purchase_orders_created_byTousers")
+  radiology_order_items_radiology_order_items_performed_byTousers   radiology_order_items[]     @relation("radiology_order_items_performed_byTousers")
+  radiology_order_items_radiology_order_items_radiologist_idTousers radiology_order_items[]     @relation("radiology_order_items_radiologist_idTousers")
+  radiology_orders_radiology_orders_cancelled_byTousers             radiology_orders[]          @relation("radiology_orders_cancelled_byTousers")
+  radiology_orders_radiology_orders_ordering_doctor_idTousers       radiology_orders[]          @relation("radiology_orders_ordering_doctor_idTousers")
+  rehabilitationEntries                                             rehabilitation_entries[]
+  security_incidents_security_incidents_assigned_toTousers          security_incidents[]        @relation("security_incidents_assigned_toTousers")
+  security_incidents_security_incidents_reported_byTousers          security_incidents[]        @relation("security_incidents_reported_byTousers")
+  staff_profiles                                                    staff_profiles?
+  staff_profiles_reviewed_by                                        staff_profiles[]            @relation("staff_reviewed_by")
+  staff_profiles_submitted_by                                       staff_profiles[]            @relation("staff_submitted_by")
+  system_notifications                                              system_notifications[]
+  therapy_orders                                                    therapy_orders[]
+  therapy_sessions                                                  therapy_sessions[]
+  user_roles_user_roles_assigned_byTousers                          user_roles[]                @relation("user_roles_assigned_byTousers")
+  user_roles_user_roles_user_idTousers                              user_roles[]                @relation("user_roles_user_idTousers")
+  attendance_records_attendance_records_approved_byTousers          attendance_records[]        @relation("attendance_records_approved_byTousers")
+  attendance_records_attendance_records_created_byTousers           attendance_records[]        @relation("attendance_records_created_byTousers")
+  facilities                                                        facilities?                 @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_facility")
+  tenants                                                           tenants                     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_tenant")
+  visitor_logs                                                      visitor_logs[]
+  washing_batches                                                   washing_batches[]
+  ambulance_status_logs                                             ambulance_status_logs[]
+  ambulance_calls                                                   ambulance_calls[]
+  ambulance_maintenance_logs                                        ambulance_maintenance_logs[]
+
+  @@index([tenant_id, email], map: "idx_users_email")
+  @@index([tenant_id, employee_id], map: "idx_users_employee")
+  @@index([tenant_id, username, is_active], map: "idx_users_username_active")
+}
+
+model visitor_logs {
+  visitor_id     BigInt       @id @default(autoincrement())
+  tenant_id      BigInt
+  visitor_name   String       @db.VarChar(255)
+  contact_number String?      @db.VarChar(20)
+  id_type        String?      @db.VarChar(50)
+  id_number      String?      @db.VarChar(100)
+  purpose        String?      @db.VarChar(255)
+  person_to_meet String?      @db.VarChar(255)
+  department_id  Int?
+  check_in_time  DateTime?    @default(now()) @db.Timestamp(6)
+  check_out_time DateTime?    @db.Timestamp(6)
+  vehicle_number String?      @db.VarChar(50)
+  guard_on_duty  BigInt?
+  created_at     DateTime?    @default(now()) @db.Timestamp(6)
+  departments    departments? @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visitor_department")
+  users          users?       @relation(fields: [guard_on_duty], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visitor_guard")
+  tenants        tenants      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visitor_tenant")
+
+  @@index([tenant_id, check_in_time], map: "idx_visitor_checkin")
+  @@index([tenant_id, contact_number], map: "idx_visitor_contact")
+}
+
+model wards {
+  ward_id        Int              @id @default(autoincrement())
+  tenant_id      BigInt
+  facility_id    BigInt?
+  ward_name      String           @db.VarChar(100)
+  ward_code      String           @db.VarChar(50)
+  ward_type      String?          @db.VarChar(50)
+  floor_number   Int?
+  total_beds     Int?             @default(0)
+  available_beds Int?             @default(0)
+  is_active      Boolean?         @default(true)
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  beds           beds[]
+  ipd_admissions ipd_admissions[]
+  linen_requests linen_requests[]
+  facilities     facilities?      @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_wards_facility")
+  tenants        tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_wards_tenant")
+
+  @@unique([tenant_id, ward_code], map: "idx_wards_code")
+}
+
+model washing_batches {
+  batch_id           BigInt          @id @default(autoincrement())
+  tenant_id          BigInt
+  batch_number       String          @unique @db.VarChar(50)
+  linen_type_id      Int?
+  weight_kg          Decimal?        @db.Decimal(8, 2)
+  washing_machine_id String?         @db.VarChar(50)
+  start_time         DateTime?       @db.Timestamp(6)
+  end_time           DateTime?       @db.Timestamp(6)
+  status             request_status? @default(pending)
+  operator_id        BigInt?
+  created_at         DateTime?       @default(now()) @db.Timestamp(6)
+  users              users?          @relation(fields: [operator_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_washing_batches_operator")
+  tenants            tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_washing_batches_tenant")
+  linen_types        linen_types?    @relation(fields: [linen_type_id], references: [linen_type_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_washing_batches_type")
+
+  @@unique([tenant_id, batch_number], map: "idx_washing_batch")
+  @@index([tenant_id, status, start_time], map: "idx_washing_status")
+}
+
+model diet_entries {
+  entry_id            BigInt            @id @default(autoincrement())
+  tenant_id           BigInt
+  patient_id          BigInt
+  entry_date          DateTime          @default(now()) @db.Date
+  age                 Int?
+  gender              String?           @db.VarChar(20)
+  height              Decimal?          @db.Decimal(5, 2)
+  weight              Decimal?          @db.Decimal(5, 2)
+  bmi                 Decimal?          @db.Decimal(5, 2)
+  mobility            String?           @db.VarChar(100)
+  glucose             Decimal?          @db.Decimal(6, 2)
+  hba1c               Decimal?          @db.Decimal(4, 2)
+  diet_type           String?           @db.VarChar(100)
+  calories            Int?
+  protein             Decimal?          @db.Decimal(6, 2)
+  breakfast_time      String?           @db.VarChar(10)
+  lunch_time          String?           @db.VarChar(10)
+  dinner_time         String?           @db.VarChar(10)
+  notes               String?
+  status              diet_plan_status? @default(pending)
+  priority            priority_level?   @default(normal)
+  meal_type           String?           @db.VarChar(50)
+  approved_by         BigInt?
+  approved_at         DateTime?         @db.Timestamp(6)
+  cancelled_by        BigInt?
+  cancelled_at        DateTime?         @db.Timestamp(6)
+  cancellation_reason String?
+  created_by          BigInt
+  created_at          DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?         @updatedAt @db.Timestamp(6)
+  approved_by_user    users?            @relation("diet_approved_by", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  cancelled_by_user   users?            @relation("diet_cancelled_by", fields: [cancelled_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  users               users             @relation(fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_diet_entries_creator")
+  patients            patients          @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_diet_entries_patient")
+  tenants             tenants           @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_diet_entries_tenant")
+
+  @@index([tenant_id, patient_id, entry_date], map: "idx_diet_entries_patient_date")
+  @@index([tenant_id, entry_date], map: "idx_diet_entries_date")
+  @@index([tenant_id, status], map: "idx_diet_entries_status")
+  @@index([tenant_id, priority], map: "idx_diet_entries_priority")
+}
+
+model payroll_cycles {
+  cycle_id     BigInt                @id @default(autoincrement())
+  tenant_id    BigInt
+  name         String                @db.VarChar(255)
+  period_start DateTime              @db.Date
+  period_end   DateTime              @db.Date
+  status       payroll_cycle_status? @default(draft)
+  cutoff_date  DateTime?             @db.Date
+  created_by   BigInt
+  created_at   DateTime?             @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?             @default(now()) @db.Timestamp(6)
+  users        users                 @relation(fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_cycles_creator")
+  tenants      tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_cycles_tenant")
+  payroll_runs payroll_runs[]
+
+  @@index([tenant_id, period_start, period_end], map: "idx_payroll_cycles_period")
+  @@index([tenant_id, status], map: "idx_payroll_cycles_status")
+}
+
+model salary_components {
+  component_id                  Int                             @id @default(autoincrement())
+  tenant_id                     BigInt
+  code                          String                          @db.VarChar(50)
+  name                          String                          @db.VarChar(255)
+  type                          component_type
+  calc_type                     calc_type
+  is_taxable                    Boolean?                        @default(false)
+  is_active                     Boolean?                        @default(true)
+  created_at                    DateTime?                       @default(now()) @db.Timestamp(6)
+  updated_at                    DateTime?                       @default(now()) @db.Timestamp(6)
+  payroll_run_item_components   payroll_run_item_components[]
+  tenants                       tenants                         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_salary_components_tenant")
+  staff_salary_component_values staff_salary_component_values[]
+
+  @@unique([tenant_id, code], map: "idx_salary_components_unique_code")
+  @@index([tenant_id, type, is_active], map: "idx_salary_components_type")
+}
+
+model staff_salary_profiles {
+  salary_profile_id             BigInt                          @id @default(autoincrement())
+  tenant_id                     BigInt
+  staff_id                      BigInt
+  effective_from                DateTime                        @db.Date
+  effective_to                  DateTime?                       @db.Date
+  is_active                     Boolean?                        @default(true)
+  base_gross                    Decimal                         @db.Decimal(12, 2)
+  notes                         String?
+  created_at                    DateTime?                       @default(now()) @db.Timestamp(6)
+  updated_at                    DateTime?                       @default(now()) @db.Timestamp(6)
+  staff_salary_component_values staff_salary_component_values[]
+  staff_profiles                staff_profiles                  @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_salary_profiles_staff")
+  tenants                       tenants                         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_salary_profiles_tenant")
+
+  @@index([tenant_id, staff_id, is_active], map: "idx_staff_salary_profiles_active")
+  @@index([tenant_id, effective_from, effective_to], map: "idx_staff_salary_profiles_period")
+}
+
+model staff_salary_component_values {
+  id                    BigInt                @id @default(autoincrement())
+  salary_profile_id     BigInt
+  component_id          Int
+  value                 Decimal               @db.Decimal(12, 2)
+  percentage_base       String?               @db.VarChar(50)
+  sort_order            Int?
+  salary_components     salary_components     @relation(fields: [component_id], references: [component_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_component_values_component")
+  staff_salary_profiles staff_salary_profiles @relation(fields: [salary_profile_id], references: [salary_profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_component_values_profile")
+
+  @@unique([salary_profile_id, component_id], map: "idx_component_values_unique")
+  @@index([salary_profile_id], map: "idx_component_values_profile")
+}
+
+model payroll_runs {
+  run_id                                 BigInt              @id @default(autoincrement())
+  tenant_id                              BigInt
+  cycle_id                               BigInt
+  status                                 payroll_run_status? @default(draft)
+  generated_by                           BigInt
+  generated_at                           DateTime?           @default(now()) @db.Timestamp(6)
+  approved_by                            BigInt?
+  approved_at                            DateTime?           @db.Timestamp(6)
+  created_at                             DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at                             DateTime?           @default(now()) @db.Timestamp(6)
+  payroll_run_items                      payroll_run_items[]
+  users_payroll_runs_approved_byTousers  users?              @relation("payroll_runs_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_runs_approver")
+  payroll_cycles                         payroll_cycles      @relation(fields: [cycle_id], references: [cycle_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_runs_cycle")
+  users_payroll_runs_generated_byTousers users               @relation("payroll_runs_generated_byTousers", fields: [generated_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_runs_generator")
+  tenants                                tenants             @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_runs_tenant")
+  payslips                               payslips[]
+
+  @@index([tenant_id, cycle_id, status], map: "idx_payroll_runs_cycle_status")
+  @@index([tenant_id, status], map: "idx_payroll_runs_status")
+}
+
+model payroll_run_items {
+  item_id                     BigInt                        @id @default(autoincrement())
+  run_id                      BigInt
+  staff_id                    BigInt
+  payable_days                Decimal?                      @db.Decimal(5, 2)
+  lop_days                    Decimal?                      @db.Decimal(5, 2)
+  gross_earnings              Decimal                       @db.Decimal(12, 2)
+  total_deductions            Decimal                       @db.Decimal(12, 2)
+  net_pay                     Decimal                       @db.Decimal(12, 2)
+  remarks                     String?
+  created_at                  DateTime?                     @default(now()) @db.Timestamp(6)
+  payroll_run_item_components payroll_run_item_components[]
+  payroll_runs                payroll_runs                  @relation(fields: [run_id], references: [run_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_run_items_run")
+  staff_profiles              staff_profiles                @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payroll_run_items_staff")
+
+  @@unique([run_id, staff_id], map: "idx_payroll_run_items_unique")
+  @@index([run_id, staff_id], map: "idx_payroll_run_items_staff")
+}
+
+model payroll_run_item_components {
+  id                BigInt            @id @default(autoincrement())
+  item_id           BigInt
+  component_id      Int
+  amount            Decimal           @db.Decimal(12, 2)
+  salary_components salary_components @relation(fields: [component_id], references: [component_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_run_item_components_component")
+  payroll_run_items payroll_run_items @relation(fields: [item_id], references: [item_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_run_item_components_item")
+
+  @@unique([item_id, component_id], map: "idx_run_item_components_unique")
+  @@index([item_id], map: "idx_run_item_components_item")
+}
+
+model payslips {
+  payslip_id     BigInt         @id @default(autoincrement())
+  tenant_id      BigInt
+  run_id         BigInt
+  staff_id       BigInt
+  payslip_number String         @unique @db.VarChar(50)
+  issued_at      DateTime?      @default(now()) @db.Timestamp(6)
+  pdf_url        String?        @db.VarChar(500)
+  email_sent_at  DateTime?      @db.Timestamp(6)
+  created_at     DateTime?      @default(now()) @db.Timestamp(6)
+  payroll_runs   payroll_runs   @relation(fields: [run_id], references: [run_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payslips_run")
+  staff_profiles staff_profiles @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payslips_staff")
+  tenants        tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payslips_tenant")
+
+  @@index([tenant_id, run_id], map: "idx_payslips_run")
+  @@index([tenant_id, staff_id, issued_at], map: "idx_payslips_staff")
+}
+
+model staff_bank_details {
+  bank_detail_id      BigInt         @id @default(autoincrement())
+  tenant_id           BigInt
+  staff_id            BigInt
+  account_holder_name String         @db.VarChar(255)
+  account_number      String         @db.VarChar(100)
+  masked_account      String?        @db.VarChar(50)
+  ifsc_code           String         @db.VarChar(20)
+  bank_name           String         @db.VarChar(255)
+  branch_name         String?        @db.VarChar(255)
+  is_active           Boolean?       @default(true)
+  created_at          DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?      @default(now()) @db.Timestamp(6)
+  staff_profiles      staff_profiles @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_bank_details_staff")
+  tenants             tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_bank_details_tenant")
+
+  @@index([tenant_id, staff_id, is_active], map: "idx_staff_bank_details_staff")
+}
+
+model staff_tax_profiles {
+  tax_profile_id BigInt         @id @default(autoincrement())
+  tenant_id      BigInt
+  staff_id       BigInt         @unique
+  pan_number     String?        @db.VarChar(20)
+  tax_regime     String?        @db.VarChar(50)
+  uan_number     String?        @db.VarChar(50)
+  esic_number    String?        @db.VarChar(50)
+  created_at     DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?      @default(now()) @db.Timestamp(6)
+  staff_profiles staff_profiles @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_tax_profiles_staff")
+  tenants        tenants        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_tax_profiles_tenant")
+
+  @@index([tenant_id, staff_id], map: "idx_staff_tax_profiles_staff")
+}
+
+model suppliers {
+  supplier_id         BigInt                  @id @default(autoincrement())
+  tenant_id           BigInt
+  supplier_code       String                  @db.VarChar(50)
+  supplier_name       String                  @db.VarChar(255)
+  contact_person      String?                 @db.VarChar(255)
+  phone               String?                 @db.VarChar(20)
+  email               String?                 @db.VarChar(255)
+  address_line1       String?                 @db.VarChar(255)
+  address_line2       String?                 @db.VarChar(255)
+  city                String?                 @db.VarChar(100)
+  state               String?                 @db.VarChar(100)
+  pincode             String?                 @db.VarChar(10)
+  gst_number          String?                 @db.VarChar(20)
+  pan_number          String?                 @db.VarChar(20)
+  category_id         BigInt?
+  rating              Decimal?                @db.Decimal(3, 2)
+  lead_time_days_min  Int?
+  lead_time_days_max  Int?
+  status              supplier_status?        @default(active)
+  is_active           Boolean?                @default(true)
+  created_at          DateTime?               @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?               @default(now()) @db.Timestamp(6)
+  grn                 grn[]
+  purchase_orders     purchase_orders[]
+  inventory_transactions inventory_transactions[]
+  supplier_categories supplier_categories?    @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_suppliers_category")
+  tenants             tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_suppliers_tenant")
+
+  @@unique([tenant_id, supplier_code], map: "idx_suppliers_unique_code")
+  @@index([tenant_id, status], map: "idx_suppliers_status")
+  @@index([tenant_id, supplier_name], map: "idx_suppliers_name")
+  @@index([tenant_id, category_id], map: "idx_suppliers_category")
+}
+
+model purchase_orders {
+  po_id                                    BigInt                 @id @default(autoincrement())
+  tenant_id                                BigInt
+  po_number                                String                 @unique @db.VarChar(50)
+  supplier_id                              BigInt
+  po_date                                  DateTime               @db.Date
+  expected_delivery_date                   DateTime?              @db.Date
+  status                                   purchase_order_status? @default(draft)
+  subtotal_amount                          Decimal                @db.Decimal(12, 2)
+  tax_amount                               Decimal?               @db.Decimal(12, 2)
+  discount_amount                          Decimal?               @db.Decimal(12, 2)
+  total_amount                             Decimal                @db.Decimal(12, 2)
+  items_count                              Int?                   @default(0)
+  notes                                    String?
+  created_by                               BigInt
+  approved_by                              BigInt?
+  approved_at                              DateTime?              @db.Timestamp(6)
+  created_at                               DateTime?              @default(now()) @db.Timestamp(6)
+  updated_at                               DateTime?              @default(now()) @db.Timestamp(6)
+  is_active                                Boolean?               @default(true)
+  grn                                      grn[]
+  purchase_order_items                     purchase_order_items[]
+  users_purchase_orders_approved_byTousers users?                 @relation("purchase_orders_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_orders_approver")
+  users_purchase_orders_created_byTousers  users                  @relation("purchase_orders_created_byTousers", fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_orders_creator")
+  suppliers                                suppliers              @relation(fields: [supplier_id], references: [supplier_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_orders_supplier")
+  tenants                                  tenants                @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_orders_tenant")
+
+  @@unique([tenant_id, po_number], map: "idx_purchase_orders_unique_number")
+  @@index([tenant_id, supplier_id, po_date], map: "idx_purchase_orders_supplier")
+  @@index([tenant_id, status], map: "idx_purchase_orders_status")
+  @@index([tenant_id, po_date], map: "idx_purchase_orders_date")
+}
+
+model grn {
+  grn_id                       BigInt          @id @default(autoincrement())
+  tenant_id                    BigInt
+  grn_number                   String          @unique @db.VarChar(50)
+  po_id                        BigInt
+  supplier_id                  BigInt
+  received_date                DateTime        @db.Date
+  received_at                  DateTime?       @db.Timestamp(6)
+  delivery_challan_number      String?         @db.VarChar(100)
+  invoice_number               String?         @db.VarChar(100)
+  invoice_date                 DateTime?       @db.Date
+  status                       grn_status?     @default(draft)
+  remarks                      String?
+  received_notes               String?
+  received_by                  BigInt
+  approved_by                  BigInt?
+  approved_at                  DateTime?       @db.Timestamp(6)
+  created_at                   DateTime?       @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime?       @default(now()) @db.Timestamp(6)
+  is_active                    Boolean?        @default(true)
+  users_grn_approved_byTousers users?          @relation("grn_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grn_approver")
+  purchase_orders              purchase_orders @relation(fields: [po_id], references: [po_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grn_purchase_order")
+  users_grn_received_byTousers users           @relation("grn_received_byTousers", fields: [received_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grn_receiver")
+  suppliers                    suppliers       @relation(fields: [supplier_id], references: [supplier_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grn_supplier")
+  tenants                      tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_grn_tenant")
+
+  @@unique([tenant_id, grn_number], map: "idx_grn_unique_number")
+  @@index([tenant_id, po_id], map: "idx_grn_purchase_order")
+  @@index([tenant_id, supplier_id, received_date], map: "idx_grn_supplier")
+  @@index([tenant_id, status], map: "idx_grn_status")
+  @@index([tenant_id, received_date], map: "idx_grn_date")
+}
+
+model purchase_order_items {
+  po_item_id     BigInt    @id @default(autoincrement())
+  tenant_id      BigInt
+  po_id          BigInt
+  drug_id        Int
+  drug_name      String    @db.VarChar(255)
+  quantity       Int
+  unit_price     Decimal   @db.Decimal(10,2)
+  total_price    Decimal   @db.Decimal(12,2)
+
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+
+  purchase_orders purchase_orders @relation(fields: [po_id], references: [po_id], onDelete: Cascade)
+  drugs           drugs           @relation(fields: [drug_id], references: [drug_id], onDelete: NoAction)
+  tenants         tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction)
+
+  @@index([tenant_id, po_id], map: "idx_po_items")
+  inventoryItems inventory_items[]
+}
+
+model visitor_entries {
+  entry_id           Int      @id @default(autoincrement()) @map("entryId")
+  tenant_id          BigInt   @map("tenantId")
+  visitor_pass_number String? @unique @map("visitorPassNumber") @db.VarChar(50)
+    // Distinguish between types of visitors
+    visitor_type        String?              @default("General") @map("visitorType") @db.VarChar(50)
+    company_name        String?              @map("companyName") @db.VarChar(255)
+  visitor_name       String   @map("visitorName") @db.VarChar(100)
+  mobile             String   @db.VarChar(15)
+  id_type            String   @map("idType") @db.VarChar(50)
+  id_number          String   @map("idNumber") @db.VarChar(50)
+  department         String   @db.VarChar(100)
+  purpose            String
+  gate_number        String   @map("gateNumber") @db.VarChar(50)
+  entry_time         DateTime @default(now()) @map("entryTime")
+  expected_exit_time String?  @map("expectedExitTime") @db.VarChar(50)
+  exit_time          DateTime? @map("exitTime")
+  guard_name         String?  @map("guardName") @db.VarChar(100)
+  status             visitor_entry_status?  @default(checkin)
+  created_at         DateTime @default(now()) @map("createdAt")
+  tenants            tenants  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visitor_entries_tenant")
+
+  @@index([tenant_id, entry_time], map: "idx_visitor_entries_entry_time")
+  @@index([tenant_id, status], map: "idx_visitor_entries_status")
+  @@index([tenant_id, mobile], map: "idx_visitor_entries_mobile")
+  @@index([tenant_id, visitor_pass_number], map: "idx_visitor_entries_pass_number")
+}
+
+model supplier_categories {
+  category_id   BigInt      @id @default(autoincrement())
+  tenant_id     BigInt
+  category_name String      @db.VarChar(255)
+  is_active     Boolean?    @default(true)
+  created_at    DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?   @default(now()) @db.Timestamp(6)
+  suppliers     suppliers[]
+  tenants       tenants     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_supplier_categories_tenant")
+
+  @@unique([tenant_id, category_name], map: "idx_supplier_categories_unique_name")
+  @@index([tenant_id, is_active], map: "idx_supplier_categories_active")
+}
+
+model attendance_records {
+  attendance_id                                    BigInt             @id @default(autoincrement())
+  tenant_id                                        BigInt
+  staff_id                                         BigInt
+  attendance_date                                  DateTime           @db.Date
+  roster_id                                        BigInt?
+  status                                           attendance_status  @default(absent)
+  check_in_time                                    DateTime?          @db.Timestamp(6)
+  check_out_time                                   DateTime?          @db.Timestamp(6)
+  worked_minutes                                   Int?               @default(0)
+  late_minutes                                     Int?               @default(0)
+  early_exit_minutes                               Int?               @default(0)
+  overtime_minutes                                 Int?               @default(0)
+  source                                           attendance_source? @default(manual)
+  is_manual                                        Boolean?           @default(false)
+  remarks                                          String?
+  approved_by                                      BigInt?
+  approved_at                                      DateTime?          @db.Timestamp(6)
+  created_by                                       BigInt?
+  created_at                                       DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at                                       DateTime?          @default(now()) @db.Timestamp(6)
+  tenants                                          tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_tenant")
+  staff_profiles                                   staff_profiles     @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_staff")
+  duty_roster                                      duty_roster?       @relation(fields: [roster_id], references: [roster_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_roster")
+  users_attendance_records_approved_byTousers      users?             @relation("attendance_records_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_approved_by")
+  users_attendance_records_created_byTousers       users?             @relation("attendance_records_created_byTousers", fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_created_by")
+
+  @@unique([tenant_id, staff_id, attendance_date], map: "idx_attendance_unique_staff_date")
+  @@index([tenant_id, attendance_date], map: "idx_attendance_date")
+  @@index([tenant_id, status, attendance_date], map: "idx_attendance_status_date")
+  @@index([tenant_id, staff_id, attendance_date], map: "idx_attendance_staff_date")
+}
+
+model holiday_calendar {
+  holiday_id   BigInt       @id @default(autoincrement())
+  tenant_id    BigInt
+  holiday_date DateTime     @db.Date
+  holiday_name String       @db.VarChar(255)
+  holiday_type holiday_type @default(custom)
+  is_optional  Boolean?     @default(false)
+  description  String?
+  created_at   DateTime?    @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?    @default(now()) @db.Timestamp(6)
+  tenants      tenants      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_holiday_tenant")
+
+  @@unique([tenant_id, holiday_date, holiday_name], map: "idx_holiday_unique")
+  @@index([tenant_id, holiday_date], map: "idx_holiday_date")
+}
+
+model biometric_attendance_logs {
+  log_id            BigInt                @id @default(autoincrement())
+  tenant_id         BigInt
+  device_log_id     String                @db.VarChar(100)
+  device_id         String?               @db.VarChar(100)
+  staff_identifier  String?               @db.VarChar(100)
+  matched_staff_id  BigInt?
+  punch_time        DateTime              @db.Timestamp(6)
+  punch_type        biometric_punch_type  @default(unknown)
+  payload           Json?
+  is_processed      Boolean?              @default(false)
+  processed_at      DateTime?             @db.Timestamp(6)
+  processing_error  String?
+  created_at        DateTime?             @default(now()) @db.Timestamp(6)
+  tenants           tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bio_log_tenant")
+  staff_profiles    staff_profiles?       @relation(fields: [matched_staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bio_log_staff")
+
+  @@unique([tenant_id, device_log_id], map: "idx_bio_log_unique")
+  @@index([tenant_id, punch_time], map: "idx_bio_log_time")
+  @@index([tenant_id, matched_staff_id, punch_time], map: "idx_bio_log_staff_time")
+  @@index([tenant_id, is_processed], map: "idx_bio_log_processed")
+}
+
+// =============================
+// AMBULANCE MANAGEMENT MODULE
+// =============================
+
+model ambulances {
+  ambulance_id              BigInt                         @id @default(autoincrement())
+  tenant_id                 BigInt
+  facility_id               BigInt?
+  vehicle_number            String                         @unique @db.VarChar(50)
+  vehicle_type              ambulance_type
+  registration_expiry       DateTime?                      @db.Date
+  equipment_notes           String?
+  gps_device_id             String?                        @db.VarChar(100)
+  is_active                 Boolean?                       @default(true)
+  created_at                DateTime?                      @default(now()) @db.Timestamp(6)
+  updated_at                DateTime?                      @default(now()) @db.Timestamp(6)
+  tenants                   tenants                        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulances_tenant")
+  facilities                facilities?                    @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulances_facility")
+  trips                     ambulance_trips[]
+  status_logs               ambulance_status_logs[]
+  maintenance_logs          ambulance_maintenance_logs[]
+
+  @@index([tenant_id, vehicle_number], map: "idx_ambulances_vehicle")
+  @@index([tenant_id, is_active], map: "idx_ambulances_active")
+}
+
+model ambulance_drivers {
+  driver_id      BigInt              @id @default(autoincrement())
+  tenant_id      BigInt
+  full_name      String              @db.VarChar(100)
+  phone          String?             @db.VarChar(20)
+  license_number String?             @db.VarChar(100)
+  license_expiry DateTime?           @db.Date
+  is_active      Boolean?            @default(true)
+  created_at     DateTime?           @default(now()) @db.Timestamp(6)
+  tenants        tenants             @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_drivers_tenant")
+  trips          ambulance_trips[]
+
+  @@index([tenant_id, is_active], map: "idx_ambulance_drivers_active")
+}
+
+model ambulance_status_logs {
+  status_id    BigInt           @id @default(autoincrement())
+  tenant_id    BigInt
+  ambulance_id BigInt
+  status       ambulance_status
+  reason       String?
+  changed_at   DateTime         @default(now()) @db.Timestamp(6)
+  changed_by   BigInt?
+  ambulances   ambulances       @relation(fields: [ambulance_id], references: [ambulance_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_status_ambulance")
+  users        users?           @relation(fields: [changed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_status_user")
+  tenants      tenants          @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_status_tenant")
+
+  @@index([tenant_id, ambulance_id, changed_at], map: "idx_ambulance_status_logs")
+}
+
+model ambulance_calls {
+  call_id         BigInt                  @id @default(autoincrement())
+  tenant_id       BigInt
+  facility_id     BigInt?
+  call_number     String                  @unique @db.VarChar(50)
+  patient_id      BigInt?
+  patient_name    String?                 @db.VarChar(100)
+  patient_uhid    String?                 @db.VarChar(50)
+  pickup_location String
+  drop_location   String
+  call_type       String                  @db.VarChar(50)
+  priority        priority_level?
+  status          ambulance_call_status?  @default(pending)
+  requested_by    BigInt?
+  created_at      DateTime?               @default(now()) @db.Timestamp(6)
+  tenants         tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_tenant")
+  facilities      facilities?             @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_facility")
+  patients        patients?               @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_patient")
+  users           users?                  @relation(fields: [requested_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_user")
+  trips           ambulance_trips[]
+
+  @@index([tenant_id, status], map: "idx_ambulance_calls_status")
+  @@index([tenant_id, created_at], map: "idx_ambulance_calls_created")
+}
+
+model ambulance_trips {
+  trip_id         BigInt                  @id @default(autoincrement())
+  tenant_id       BigInt
+  call_id         BigInt
+  ambulance_id    BigInt
+  driver_id       BigInt?
+  start_time      DateTime?               @db.Timestamp(6)
+  pickup_time     DateTime?               @db.Timestamp(6)
+  drop_time       DateTime?               @db.Timestamp(6)
+  end_time        DateTime?               @db.Timestamp(6)
+  distance_km     Decimal?                @db.Decimal(8, 2)
+  fuel_cost       Decimal?                @db.Decimal(10, 2)
+  trip_status     ambulance_trip_status?  @default(assigned)
+  notes           String?
+  created_at      DateTime?               @default(now()) @db.Timestamp(6)
+  ambulance_calls ambulance_calls         @relation(fields: [call_id], references: [call_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_call")
+  ambulances      ambulances              @relation(fields: [ambulance_id], references: [ambulance_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_ambulance")
+  drivers         ambulance_drivers?      @relation(fields: [driver_id], references: [driver_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_driver")
+  tenants         tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_tenant")
+
+  @@index([tenant_id, trip_status], map: "idx_ambulance_trips_status")
+  @@index([tenant_id, ambulance_id], map: "idx_ambulance_trips_ambulance")
+}
+
+model ambulance_maintenance_logs {
+  maintenance_id   BigInt     @id @default(autoincrement())
+  tenant_id        BigInt
+  ambulance_id     BigInt
+  maintenance_type String     @db.VarChar(100)
+  description      String?
+  cost             Decimal?   @db.Decimal(10, 2)
+  maintenance_date DateTime   @default(now()) @db.Timestamp(6)
+  next_due_date    DateTime?  @db.Date
+  performed_by     BigInt?
+  created_at       DateTime?  @default(now()) @db.Timestamp(6)
+  ambulances       ambulances @relation(fields: [ambulance_id], references: [ambulance_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_maintenance_ambulance")
+  users            users?     @relation(fields: [performed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_maintenance_user")
+  tenants          tenants    @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_maintenance_tenant")
+
+  @@index([tenant_id, ambulance_id, maintenance_date], map: "idx_ambulance_maintenance_logs")
+}
+
+model parking_entries {
+  entry_id       BigInt    @id @default(autoincrement())
+  tenant_id      BigInt
+  vehicle_number String    @db.VarChar(50)
+  vehicle_type   String    @db.VarChar(50)
+  driver_name    String    @db.VarChar(100)
+  parking_slot   String    @db.VarChar(50)
+  entry_time     DateTime  @default(now()) @db.Timestamp(6)
+  exit_time      DateTime? @db.Timestamp(6)
+  status         String    @default("parked") @db.VarChar(20)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  tenants        tenants   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_parking_entries_tenant")
+
+  @@index([tenant_id, status], map: "idx_parking_entries_status")
+  @@index([tenant_id, vehicle_number], map: "idx_parking_entries_vehicle")
+}
+
+enum admission_status {
+  admitted
+  transferred
+  discharged
+  cancelled
+}
+
+enum appointment_status {
+  scheduled
+  confirmed
+  checked_in
+  completed
+  cancelled
+  no_show
+}
+
+enum billing_status {
+  unpaid
+  partial
+  paid
+  refunded
+}
+
+enum gender_type {
+  male
+  female
+  other
+  unknown
+}
+
+enum incident_status {
+  open
+  investigating
+  resolved
+  closed
+}
+
+enum inventory_txn_type {
+  purchase
+  issue
+  return
+  adjustment
+}
+
+enum leave_status {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum order_status {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum payment_mode {
+  cash
+  card
+  upi
+  netbanking
+  cheque
+}
+
+enum priority_level {
+  normal
+  urgent
+  emergency
+}
+
+enum diet_plan_status {
+  pending
+  approved
+  modified
+  cancelled
+}
+
+enum prescription_status {
+  pending
+  processing
+  completed
+  cancelled
+}
+
+enum request_status {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum shift_type {
+  morning
+  afternoon
+  night
+}
+
+enum staff_request_status {
+  pending
+  approved
+  rejected
+}
+
+enum staff_request_type {
+  new
+  update
+}
+
+enum tenant_status {
+  active
+  suspended
+  decommissioned
+}
+
+enum therapy_type {
+  physiotherapy
+  occupational
+  speech
+  prosthetics
+  orthotics
+  other
+}
+
+enum visit_status {
+  waiting
+  in_consultation
+  completed
+  cancelled
+}
+
+enum visit_type {
+  new
+  followup
+  review
+}
+
+enum payroll_cycle_status {
+  draft
+  processing
+  finalized
+  paid
+}
+
+enum payroll_run_status {
+  draft
+  locked
+  approved
+  paid
+}
+
+enum component_type {
+  earning
+  deduction
+}
+
+enum calc_type {
+  fixed
+  percentage
+}
+
+enum purchase_order_status {
+  draft
+  pending_approval
+  approved
+  partially_received
+  received
+  cancelled
+  closed
+}
+
+enum grn_status {
+  draft
+  pending_qc
+  accepted
+  partial_accept
+  rejected
+  cancelled
+}
+
+enum supplier_status {
+  active
+  inactive
+  blocked
+}
+
+enum return_status {
+  awaiting_pickup
+  picked_up
+  rejected
+  completed
+}
+
+enum attendance_status {
+  present
+  absent
+  leave
+  half_day
+  weekoff
+  holiday
+}
+
+enum attendance_source {
+  manual
+  biometric
+  import
+  system
+}
+
+enum holiday_type {
+  national
+  state
+  local
+  festival
+  custom
+}
+
+enum biometric_punch_type {
+  in
+  out
+  break_in
+  break_out
+  unknown
+}
+
+enum visitor_entry_status {
+  checkin
+  checkout
+}
+
+enum ambulance_type {
+  als
+  bls
+  patient_transport
+  icu
+  neonatal
+}
+
+enum ambulance_status {
+  available
+  on_trip
+  maintenance
+  reserved
+  inactive
+}
+
+enum ambulance_call_status {
+  pending
+  assigned
+  cancelled
+  completed
+}
+
+enum ambulance_trip_status {
+  assigned
+  started
+  reached_pickup
+  patient_onboard
+  completed
+  cancelled
+}
+
