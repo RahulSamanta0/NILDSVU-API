@@ -301,21 +301,21 @@ model discharge_summaries {
 }
 
 model drugs {
-  drug_id             Int                   @id @default(autoincrement())
-  tenant_id           BigInt
-  drug_code           String                @unique @db.VarChar(50)
-  drug_name           String                @db.VarChar(255)
-  generic_name        String?               @db.VarChar(255)
-  drug_category       String?               @db.VarChar(100)
-  dosage_form         String?               @db.VarChar(50)
-  strength            String?               @db.VarChar(100)
-  manufacturer        String?               @db.VarChar(255)
-  is_active           Boolean?              @default(true)
-  created_at          DateTime?             @default(now()) @db.Timestamp(6)
-  tenants             tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_drugs_tenant")
-  pharmacy_sale_items pharmacy_sale_items[]
-  pharmacy_stock      pharmacy_stock[]
-  prescription_items  prescription_items[]
+  drug_id              Int                    @id @default(autoincrement())
+  tenant_id            BigInt
+  drug_code            String                 @unique @db.VarChar(50)
+  drug_name            String                 @db.VarChar(255)
+  generic_name         String?                @db.VarChar(255)
+  drug_category        String?                @db.VarChar(100)
+  dosage_form          String?                @db.VarChar(50)
+  strength             String?                @db.VarChar(100)
+  manufacturer         String?                @db.VarChar(255)
+  is_active            Boolean?               @default(true)
+  created_at           DateTime?              @default(now()) @db.Timestamp(6)
+  tenants              tenants                @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_drugs_tenant")
+  pharmacy_sale_items  pharmacy_sale_items[]
+  pharmacy_stock       pharmacy_stock[]
+  prescription_items   prescription_items[]
   purchase_order_items purchase_order_items[]
 
   @@unique([tenant_id, drug_code], map: "idx_drugs_code")
@@ -423,8 +423,6 @@ model inventory_items {
   @@index([tenant_id, category_id], map: "idx_inventory_category")
   @@index([tenant_id, current_stock], map: "idx_inventory_stock")
 }
-
-
 
 model inventory_transactions {
   transaction_id                                   BigInt             @id @default(autoincrement())
@@ -1201,30 +1199,30 @@ model security_incidents {
 }
 
 model staff_profiles {
-  profile_id                BigInt                          @id @default(autoincrement())
+  profile_id                BigInt                      @id @default(autoincrement())
   tenant_id                 BigInt
-  user_id                   BigInt                          @unique
-  employee_code             String                          @unique @db.VarChar(50)
-  first_name                String                          @db.VarChar(100)
-  last_name                 String                          @db.VarChar(100)
-  designation               String?                         @db.VarChar(100)
+  user_id                   BigInt                      @unique
+  employee_code             String                      @unique @db.VarChar(50)
+  first_name                String                      @db.VarChar(100)
+  last_name                 String                      @db.VarChar(100)
+  designation               String?                     @db.VarChar(100)
   department_id             Int?
-  specialization            String?                         @db.VarChar(255)
-  qualification             String?                         @db.VarChar(255)
-  registration_number       String?                         @db.VarChar(100)
-  date_of_joining           DateTime?                       @db.Date
-  contact_number            String?                         @db.VarChar(20)
-  emergency_contact         String?                         @db.VarChar(20)
-  photo_url                 String?                         @db.VarChar(500)
-  is_active                 Boolean?                        @default(true)
-  created_at                DateTime?                       @default(now()) @db.Timestamp(6)
-  updated_at                DateTime?                       @default(now()) @db.Timestamp(6)
-  current_status            String?                         @default("offline")
+  specialization            String?                     @db.VarChar(255)
+  qualification             String?                     @db.VarChar(255)
+  registration_number       String?                     @db.VarChar(100)
+  date_of_joining           DateTime?                   @db.Date
+  contact_number            String?                     @db.VarChar(20)
+  emergency_contact         String?                     @db.VarChar(20)
+  photo_url                 String?                     @db.VarChar(500)
+  is_active                 Boolean?                    @default(true)
+  created_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  updated_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  current_status            String?                     @default("offline")
   room_number               String?
   request_notes             String?
-  request_status            staff_request_status?           @default(pending)
+  request_status            staff_request_status?       @default(pending)
   request_type              staff_request_type?
-  reviewed_at               DateTime?                       @db.Timestamp(6)
+  reviewed_at               DateTime?                   @db.Timestamp(6)
   reviewed_by               BigInt?
   submitted_by              BigInt?
   attendance_records        attendance_records[]
@@ -1234,11 +1232,11 @@ model staff_profiles {
   payroll_run_items         payroll_run_items[]
   payslips                  payslips[]
   staff_bank_details        staff_bank_details[]
-  departments               departments?                    @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_department")
-  tenants                   tenants                         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_tenant")
-  users                     users                           @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_user")
-  reviewed_by_user          users?                          @relation("staff_reviewed_by", fields: [reviewed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  submitted_by_user         users?                          @relation("staff_submitted_by", fields: [submitted_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  departments               departments?                @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_department")
+  tenants                   tenants                     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_tenant")
+  users                     users                       @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_staff_user")
+  reviewed_by_user          users?                      @relation("staff_reviewed_by", fields: [reviewed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  submitted_by_user         users?                      @relation("staff_submitted_by", fields: [submitted_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   staff_request_documents   staff_request_documents[]
   staff_salary_profiles     staff_salary_profiles[]
   staff_tax_profiles        staff_tax_profiles?
@@ -1298,95 +1296,95 @@ model tenant_settings {
 }
 
 model tenants {
-  tenant_id                 BigInt                      @id @default(autoincrement())
-  tenant_code               String                      @unique(map: "idx_tenants_code") @db.VarChar(50)
-  tenant_name               String                      @db.VarChar(255)
-  status                    tenant_status?              @default(active)
-  timezone                  String?                     @default("Asia/Kolkata") @db.VarChar(50)
-  created_at                DateTime?                   @default(now()) @db.Timestamp(6)
-  updated_at                DateTime?                   @default(now()) @db.Timestamp(6)
-  appointments              appointments[]
-  audit_logs                audit_logs[]
-  backup_policies           backup_policies[]
-  backup_runs               backup_runs[]
-  beds                      beds[]
-  bill_items                bill_items[]
-  bills                     bills[]
-  connection_pool_settings  connection_pool_settings[]
-  cssd_instrument_sets      cssd_instrument_sets[]
-  cssd_requests             cssd_requests[]
-  cssd_sterilization_cycles cssd_sterilization_cycles[]
-  data_retention_policies   data_retention_policies[]
-  departments               departments[]
-  diet_entries              diet_entries[]
-  discharge_summaries       discharge_summaries[]
-  drugs                     drugs[]
-  duty_roster               duty_roster[]
-  facilities                facilities[]
-  grn                       grn[]
-  inventory_categories      inventory_categories[]
-  inventory_items           inventory_items[]
-  inventory_transactions    inventory_transactions[]
-  ipd_admissions            ipd_admissions[]
-  ipd_progress_notes        ipd_progress_notes[]
-  lab_test_items            lab_test_items[]
-  lab_test_orders           lab_test_orders[]
-  lab_tests                 lab_tests[]
-  leave_applications        leave_applications[]
-  linen_inventory           linen_inventory[]
-  linen_requests            linen_requests[]
-  linen_types               linen_types[]
-  opd_consultations         opd_consultations[]
-  opd_visits                opd_visits[]
-  patient_allergies         patient_allergies[]
-  patient_disabilities      patient_disabilities[]
-  patients                  patients[]
-  payments                  payments[]
-  payroll_cycles            payroll_cycles[]
-  payroll_runs              payroll_runs[]
-  payslips                  payslips[]
-  permissions               permissions[]
-  pharmacy_sale_items       pharmacy_sale_items[]
-  pharmacy_sales            pharmacy_sales[]
-  pharmacy_stock            pharmacy_stock[]
-  prescription_items        prescription_items[]
-  prescriptions             prescriptions[]
-  purchase_orders           purchase_orders[]
-  purchase_order_items      purchase_order_items[]
-  radiology_order_items     radiology_order_items[]
-  radiology_orders          radiology_orders[]
-  radiology_studies         radiology_studies[]
-  rehabilitationEntries     rehabilitation_entries[]
-  role_permissions          role_permissions[]
-  roles                     roles[]
-  salary_components         salary_components[]
-  security_incidents        security_incidents[]
-  staff_bank_details        staff_bank_details[]
-  staff_profiles            staff_profiles[]
-  staff_salary_profiles     staff_salary_profiles[]
-  staff_tax_profiles        staff_tax_profiles[]
-  supplier_categories       supplier_categories[]
-  suppliers                 suppliers[]
-  system_notifications      system_notifications[]
-  attendance_records        attendance_records[]
-  holiday_calendar          holiday_calendar[]
-  biometric_attendance_logs    biometric_attendance_logs[]
-  tenant_settings              tenant_settings[]
-  therapy_orders               therapy_orders[]
-  therapy_sessions             therapy_sessions[]
-  user_roles                   user_roles[]
-  users                        users[]
-  visitor_entries              visitor_entries[]
-  visitor_logs                 visitor_logs[]
-  wards                        wards[]
-  washing_batches              washing_batches[]
-  ambulances                   ambulances[]
-  ambulance_drivers            ambulance_drivers[]
-  ambulance_status_logs        ambulance_status_logs[]
-  ambulance_calls              ambulance_calls[]
-  ambulance_trips              ambulance_trips[]
-  ambulance_maintenance_logs   ambulance_maintenance_logs[]
-  parking_entries              parking_entries[]
+  tenant_id                  BigInt                       @id @default(autoincrement())
+  tenant_code                String                       @unique(map: "idx_tenants_code") @db.VarChar(50)
+  tenant_name                String                       @db.VarChar(255)
+  status                     tenant_status?               @default(active)
+  timezone                   String?                      @default("Asia/Kolkata") @db.VarChar(50)
+  created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  appointments               appointments[]
+  audit_logs                 audit_logs[]
+  backup_policies            backup_policies[]
+  backup_runs                backup_runs[]
+  beds                       beds[]
+  bill_items                 bill_items[]
+  bills                      bills[]
+  connection_pool_settings   connection_pool_settings[]
+  cssd_instrument_sets       cssd_instrument_sets[]
+  cssd_requests              cssd_requests[]
+  cssd_sterilization_cycles  cssd_sterilization_cycles[]
+  data_retention_policies    data_retention_policies[]
+  departments                departments[]
+  diet_entries               diet_entries[]
+  discharge_summaries        discharge_summaries[]
+  drugs                      drugs[]
+  duty_roster                duty_roster[]
+  facilities                 facilities[]
+  grn                        grn[]
+  inventory_categories       inventory_categories[]
+  inventory_items            inventory_items[]
+  inventory_transactions     inventory_transactions[]
+  ipd_admissions             ipd_admissions[]
+  ipd_progress_notes         ipd_progress_notes[]
+  lab_test_items             lab_test_items[]
+  lab_test_orders            lab_test_orders[]
+  lab_tests                  lab_tests[]
+  leave_applications         leave_applications[]
+  linen_inventory            linen_inventory[]
+  linen_requests             linen_requests[]
+  linen_types                linen_types[]
+  opd_consultations          opd_consultations[]
+  opd_visits                 opd_visits[]
+  patient_allergies          patient_allergies[]
+  patient_disabilities       patient_disabilities[]
+  patients                   patients[]
+  payments                   payments[]
+  payroll_cycles             payroll_cycles[]
+  payroll_runs               payroll_runs[]
+  payslips                   payslips[]
+  permissions                permissions[]
+  pharmacy_sale_items        pharmacy_sale_items[]
+  pharmacy_sales             pharmacy_sales[]
+  pharmacy_stock             pharmacy_stock[]
+  prescription_items         prescription_items[]
+  prescriptions              prescriptions[]
+  purchase_orders            purchase_orders[]
+  purchase_order_items       purchase_order_items[]
+  radiology_order_items      radiology_order_items[]
+  radiology_orders           radiology_orders[]
+  radiology_studies          radiology_studies[]
+  rehabilitationEntries      rehabilitation_entries[]
+  role_permissions           role_permissions[]
+  roles                      roles[]
+  salary_components          salary_components[]
+  security_incidents         security_incidents[]
+  staff_bank_details         staff_bank_details[]
+  staff_profiles             staff_profiles[]
+  staff_salary_profiles      staff_salary_profiles[]
+  staff_tax_profiles         staff_tax_profiles[]
+  supplier_categories        supplier_categories[]
+  suppliers                  suppliers[]
+  system_notifications       system_notifications[]
+  attendance_records         attendance_records[]
+  holiday_calendar           holiday_calendar[]
+  biometric_attendance_logs  biometric_attendance_logs[]
+  tenant_settings            tenant_settings[]
+  therapy_orders             therapy_orders[]
+  therapy_sessions           therapy_sessions[]
+  user_roles                 user_roles[]
+  users                      users[]
+  visitor_entries            visitor_entries[]
+  visitor_logs               visitor_logs[]
+  wards                      wards[]
+  washing_batches            washing_batches[]
+  ambulances                 ambulances[]
+  ambulance_drivers          ambulance_drivers[]
+  ambulance_status_logs      ambulance_status_logs[]
+  ambulance_calls            ambulance_calls[]
+  ambulance_trips            ambulance_trips[]
+  ambulance_maintenance_logs ambulance_maintenance_logs[]
+  parking_entries            parking_entries[]
 
   @@index([status], map: "idx_tenants_status")
 }
@@ -1468,76 +1466,76 @@ model user_roles {
 }
 
 model users {
-  user_id                                                           BigInt                      @id @default(autoincrement())
+  user_id                                                           BigInt                       @id @default(autoincrement())
   tenant_id                                                         BigInt
   facility_id                                                       BigInt?
-  username                                                          String                      @unique @db.VarChar(100)
-  email                                                             String                      @unique @db.VarChar(255)
-  password_hash                                                     String                      @db.VarChar(255)
-  employee_id                                                       String?                     @unique @db.VarChar(50)
-  is_active                                                         Boolean?                    @default(true)
-  is_verified                                                       Boolean?                    @default(false)
-  last_login_at                                                     DateTime?                   @db.Timestamp(6)
-  created_at                                                        DateTime?                   @default(now()) @db.Timestamp(6)
-  updated_at                                                        DateTime?                   @default(now()) @db.Timestamp(6)
-  appointments_appointments_doctor_idTousers                        appointments[]              @relation("appointments_doctor_idTousers")
-  appointments_appointments_therapist_idTousers                     appointments[]              @relation("appointments_therapist_idTousers")
+  username                                                          String                       @unique @db.VarChar(100)
+  email                                                             String                       @unique @db.VarChar(255)
+  password_hash                                                     String                       @db.VarChar(255)
+  employee_id                                                       String?                      @unique @db.VarChar(50)
+  is_active                                                         Boolean?                     @default(true)
+  is_verified                                                       Boolean?                     @default(false)
+  last_login_at                                                     DateTime?                    @db.Timestamp(6)
+  created_at                                                        DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at                                                        DateTime?                    @default(now()) @db.Timestamp(6)
+  appointments_appointments_doctor_idTousers                        appointments[]               @relation("appointments_doctor_idTousers")
+  appointments_appointments_therapist_idTousers                     appointments[]               @relation("appointments_therapist_idTousers")
   audit_logs                                                        audit_logs[]
   bills                                                             bills[]
   cssd_requests                                                     cssd_requests[]
   cssd_sterilization_cycles                                         cssd_sterilization_cycles[]
   departments                                                       departments[]
-  diet_entries_approved_by                                          diet_entries[]              @relation("diet_approved_by")
-  diet_entries_cancelled_by                                         diet_entries[]              @relation("diet_cancelled_by")
+  diet_entries_approved_by                                          diet_entries[]               @relation("diet_approved_by")
+  diet_entries_cancelled_by                                         diet_entries[]               @relation("diet_cancelled_by")
   diet_entries                                                      diet_entries[]
   discharge_summaries                                               discharge_summaries[]
-  grn_grn_approved_byTousers                                        grn[]                       @relation("grn_approved_byTousers")
-  grn_grn_received_byTousers                                        grn[]                       @relation("grn_received_byTousers")
-  inventory_transactions_inventory_transactions_issued_toTousers    inventory_transactions[]    @relation("inventory_transactions_issued_toTousers")
-  inventory_transactions_inventory_transactions_performed_byTousers inventory_transactions[]    @relation("inventory_transactions_performed_byTousers")
+  grn_grn_approved_byTousers                                        grn[]                        @relation("grn_approved_byTousers")
+  grn_grn_received_byTousers                                        grn[]                        @relation("grn_received_byTousers")
+  inventory_transactions_inventory_transactions_issued_toTousers    inventory_transactions[]     @relation("inventory_transactions_issued_toTousers")
+  inventory_transactions_inventory_transactions_performed_byTousers inventory_transactions[]     @relation("inventory_transactions_performed_byTousers")
   ipd_admissions                                                    ipd_admissions[]
-  ipd_progress_notes_ipd_progress_notes_doctor_idTousers            ipd_progress_notes[]        @relation("ipd_progress_notes_doctor_idTousers")
-  ipd_progress_notes_ipd_progress_notes_nurse_idTousers             ipd_progress_notes[]        @relation("ipd_progress_notes_nurse_idTousers")
-  lab_test_items_lab_test_items_critical_acknowledged_byTousers     lab_test_items[]            @relation("lab_test_items_critical_acknowledged_byTousers")
-  lab_test_items_lab_test_items_verified_byTousers                  lab_test_items[]            @relation("lab_test_items_verified_byTousers")
-  lab_test_orders_lab_test_orders_sample_collected_byTousers        lab_test_orders[]           @relation("lab_test_orders_sample_collected_byTousers")
-  lab_test_orders_lab_test_orders_ordering_doctor_idTousers         lab_test_orders[]           @relation("lab_test_orders_ordering_doctor_idTousers")
-  lab_test_orders_lab_test_orders_rejected_byTousers                lab_test_orders[]           @relation("lab_test_orders_rejected_byTousers")
+  ipd_progress_notes_ipd_progress_notes_doctor_idTousers            ipd_progress_notes[]         @relation("ipd_progress_notes_doctor_idTousers")
+  ipd_progress_notes_ipd_progress_notes_nurse_idTousers             ipd_progress_notes[]         @relation("ipd_progress_notes_nurse_idTousers")
+  lab_test_items_lab_test_items_critical_acknowledged_byTousers     lab_test_items[]             @relation("lab_test_items_critical_acknowledged_byTousers")
+  lab_test_items_lab_test_items_verified_byTousers                  lab_test_items[]             @relation("lab_test_items_verified_byTousers")
+  lab_test_orders_lab_test_orders_sample_collected_byTousers        lab_test_orders[]            @relation("lab_test_orders_sample_collected_byTousers")
+  lab_test_orders_lab_test_orders_ordering_doctor_idTousers         lab_test_orders[]            @relation("lab_test_orders_ordering_doctor_idTousers")
+  lab_test_orders_lab_test_orders_rejected_byTousers                lab_test_orders[]            @relation("lab_test_orders_rejected_byTousers")
   leave_applications                                                leave_applications[]
   linen_requests                                                    linen_requests[]
   opd_consultations                                                 opd_consultations[]
   opd_visits                                                        opd_visits[]
   payments                                                          payments[]
   payroll_cycles                                                    payroll_cycles[]
-  payroll_runs_payroll_runs_approved_byTousers                      payroll_runs[]              @relation("payroll_runs_approved_byTousers")
-  payroll_runs_payroll_runs_generated_byTousers                     payroll_runs[]              @relation("payroll_runs_generated_byTousers")
+  payroll_runs_payroll_runs_approved_byTousers                      payroll_runs[]               @relation("payroll_runs_approved_byTousers")
+  payroll_runs_payroll_runs_generated_byTousers                     payroll_runs[]               @relation("payroll_runs_generated_byTousers")
   pharmacy_sales                                                    pharmacy_sales[]
-  pharmacy_stock_pharmacy_stock_approved_byTousers                  pharmacy_stock[]            @relation("pharmacy_stock_approved_byTousers")
-  pharmacy_stock_pharmacy_stock_requested_byTousers                 pharmacy_stock[]            @relation("pharmacy_stock_requested_byTousers")
-  prescriptions_prescriptions_approved_byTousers                    prescriptions[]             @relation("prescriptions_approved_byTousers")
-  prescriptions_prescriptions_doctor_idTousers                      prescriptions[]             @relation("prescriptions_doctor_idTousers")
-  prescriptions_prescriptions_rejected_byTousers                    prescriptions[]             @relation("prescriptions_rejected_byTousers")
-  purchase_orders_purchase_orders_approved_byTousers                purchase_orders[]           @relation("purchase_orders_approved_byTousers")
-  purchase_orders_purchase_orders_created_byTousers                 purchase_orders[]           @relation("purchase_orders_created_byTousers")
-  radiology_order_items_radiology_order_items_performed_byTousers   radiology_order_items[]     @relation("radiology_order_items_performed_byTousers")
-  radiology_order_items_radiology_order_items_radiologist_idTousers radiology_order_items[]     @relation("radiology_order_items_radiologist_idTousers")
-  radiology_orders_radiology_orders_cancelled_byTousers             radiology_orders[]          @relation("radiology_orders_cancelled_byTousers")
-  radiology_orders_radiology_orders_ordering_doctor_idTousers       radiology_orders[]          @relation("radiology_orders_ordering_doctor_idTousers")
+  pharmacy_stock_pharmacy_stock_approved_byTousers                  pharmacy_stock[]             @relation("pharmacy_stock_approved_byTousers")
+  pharmacy_stock_pharmacy_stock_requested_byTousers                 pharmacy_stock[]             @relation("pharmacy_stock_requested_byTousers")
+  prescriptions_prescriptions_approved_byTousers                    prescriptions[]              @relation("prescriptions_approved_byTousers")
+  prescriptions_prescriptions_doctor_idTousers                      prescriptions[]              @relation("prescriptions_doctor_idTousers")
+  prescriptions_prescriptions_rejected_byTousers                    prescriptions[]              @relation("prescriptions_rejected_byTousers")
+  purchase_orders_purchase_orders_approved_byTousers                purchase_orders[]            @relation("purchase_orders_approved_byTousers")
+  purchase_orders_purchase_orders_created_byTousers                 purchase_orders[]            @relation("purchase_orders_created_byTousers")
+  radiology_order_items_radiology_order_items_performed_byTousers   radiology_order_items[]      @relation("radiology_order_items_performed_byTousers")
+  radiology_order_items_radiology_order_items_radiologist_idTousers radiology_order_items[]      @relation("radiology_order_items_radiologist_idTousers")
+  radiology_orders_radiology_orders_cancelled_byTousers             radiology_orders[]           @relation("radiology_orders_cancelled_byTousers")
+  radiology_orders_radiology_orders_ordering_doctor_idTousers       radiology_orders[]           @relation("radiology_orders_ordering_doctor_idTousers")
   rehabilitationEntries                                             rehabilitation_entries[]
-  security_incidents_security_incidents_assigned_toTousers          security_incidents[]        @relation("security_incidents_assigned_toTousers")
-  security_incidents_security_incidents_reported_byTousers          security_incidents[]        @relation("security_incidents_reported_byTousers")
+  security_incidents_security_incidents_assigned_toTousers          security_incidents[]         @relation("security_incidents_assigned_toTousers")
+  security_incidents_security_incidents_reported_byTousers          security_incidents[]         @relation("security_incidents_reported_byTousers")
   staff_profiles                                                    staff_profiles?
-  staff_profiles_reviewed_by                                        staff_profiles[]            @relation("staff_reviewed_by")
-  staff_profiles_submitted_by                                       staff_profiles[]            @relation("staff_submitted_by")
+  staff_profiles_reviewed_by                                        staff_profiles[]             @relation("staff_reviewed_by")
+  staff_profiles_submitted_by                                       staff_profiles[]             @relation("staff_submitted_by")
   system_notifications                                              system_notifications[]
   therapy_orders                                                    therapy_orders[]
   therapy_sessions                                                  therapy_sessions[]
-  user_roles_user_roles_assigned_byTousers                          user_roles[]                @relation("user_roles_assigned_byTousers")
-  user_roles_user_roles_user_idTousers                              user_roles[]                @relation("user_roles_user_idTousers")
-  attendance_records_attendance_records_approved_byTousers          attendance_records[]        @relation("attendance_records_approved_byTousers")
-  attendance_records_attendance_records_created_byTousers           attendance_records[]        @relation("attendance_records_created_byTousers")
-  facilities                                                        facilities?                 @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_facility")
-  tenants                                                           tenants                     @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_tenant")
+  user_roles_user_roles_assigned_byTousers                          user_roles[]                 @relation("user_roles_assigned_byTousers")
+  user_roles_user_roles_user_idTousers                              user_roles[]                 @relation("user_roles_user_idTousers")
+  attendance_records_attendance_records_approved_byTousers          attendance_records[]         @relation("attendance_records_approved_byTousers")
+  attendance_records_attendance_records_created_byTousers           attendance_records[]         @relation("attendance_records_created_byTousers")
+  facilities                                                        facilities?                  @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_facility")
+  tenants                                                           tenants                      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_tenant")
   visitor_logs                                                      visitor_logs[]
   washing_batches                                                   washing_batches[]
   ambulance_status_logs                                             ambulance_status_logs[]
@@ -1834,33 +1832,33 @@ model staff_tax_profiles {
 }
 
 model suppliers {
-  supplier_id         BigInt                  @id @default(autoincrement())
-  tenant_id           BigInt
-  supplier_code       String                  @db.VarChar(50)
-  supplier_name       String                  @db.VarChar(255)
-  contact_person      String?                 @db.VarChar(255)
-  phone               String?                 @db.VarChar(20)
-  email               String?                 @db.VarChar(255)
-  address_line1       String?                 @db.VarChar(255)
-  address_line2       String?                 @db.VarChar(255)
-  city                String?                 @db.VarChar(100)
-  state               String?                 @db.VarChar(100)
-  pincode             String?                 @db.VarChar(10)
-  gst_number          String?                 @db.VarChar(20)
-  pan_number          String?                 @db.VarChar(20)
-  category_id         BigInt?
-  rating              Decimal?                @db.Decimal(3, 2)
-  lead_time_days_min  Int?
-  lead_time_days_max  Int?
-  status              supplier_status?        @default(active)
-  is_active           Boolean?                @default(true)
-  created_at          DateTime?               @default(now()) @db.Timestamp(6)
-  updated_at          DateTime?               @default(now()) @db.Timestamp(6)
-  grn                 grn[]
-  purchase_orders     purchase_orders[]
+  supplier_id            BigInt                   @id @default(autoincrement())
+  tenant_id              BigInt
+  supplier_code          String                   @db.VarChar(50)
+  supplier_name          String                   @db.VarChar(255)
+  contact_person         String?                  @db.VarChar(255)
+  phone                  String?                  @db.VarChar(20)
+  email                  String?                  @db.VarChar(255)
+  address_line1          String?                  @db.VarChar(255)
+  address_line2          String?                  @db.VarChar(255)
+  city                   String?                  @db.VarChar(100)
+  state                  String?                  @db.VarChar(100)
+  pincode                String?                  @db.VarChar(10)
+  gst_number             String?                  @db.VarChar(20)
+  pan_number             String?                  @db.VarChar(20)
+  category_id            BigInt?
+  rating                 Decimal?                 @db.Decimal(3, 2)
+  lead_time_days_min     Int?
+  lead_time_days_max     Int?
+  status                 supplier_status?         @default(active)
+  is_active              Boolean?                 @default(true)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  grn                    grn[]
+  purchase_orders        purchase_orders[]
   inventory_transactions inventory_transactions[]
-  supplier_categories supplier_categories?    @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_suppliers_category")
-  tenants             tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_suppliers_tenant")
+  supplier_categories    supplier_categories?     @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_suppliers_category")
+  tenants                tenants                  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_suppliers_tenant")
 
   @@unique([tenant_id, supplier_code], map: "idx_suppliers_unique_code")
   @@index([tenant_id, status], map: "idx_suppliers_status")
@@ -1935,46 +1933,46 @@ model grn {
 }
 
 model purchase_order_items {
-  po_item_id     BigInt    @id @default(autoincrement())
-  tenant_id      BigInt
-  po_id          BigInt
-  drug_id        Int
-  drug_name      String    @db.VarChar(255)
-  quantity       Int
-  unit_price     Decimal   @db.Decimal(10,2)
-  total_price    Decimal   @db.Decimal(12,2)
+  po_item_id  BigInt  @id @default(autoincrement())
+  tenant_id   BigInt
+  po_id       BigInt
+  drug_id     Int
+  drug_name   String  @db.VarChar(255)
+  quantity    Int
+  unit_price  Decimal @db.Decimal(10, 2)
+  total_price Decimal @db.Decimal(12, 2)
 
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
 
-  purchase_orders purchase_orders @relation(fields: [po_id], references: [po_id], onDelete: Cascade)
-  drugs           drugs           @relation(fields: [drug_id], references: [drug_id], onDelete: NoAction)
-  tenants         tenants         @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction)
+  purchase_orders purchase_orders   @relation(fields: [po_id], references: [po_id], onDelete: Cascade)
+  drugs           drugs             @relation(fields: [drug_id], references: [drug_id], onDelete: NoAction)
+  tenants         tenants           @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction)
+  inventoryItems  inventory_items[]
 
   @@index([tenant_id, po_id], map: "idx_po_items")
-  inventoryItems inventory_items[]
 }
 
 model visitor_entries {
-  entry_id           Int      @id @default(autoincrement()) @map("entryId")
-  tenant_id          BigInt   @map("tenantId")
-  visitor_pass_number String? @unique @map("visitorPassNumber") @db.VarChar(50)
-    // Distinguish between types of visitors
-    visitor_type        String?              @default("General") @map("visitorType") @db.VarChar(50)
-    company_name        String?              @map("companyName") @db.VarChar(255)
-  visitor_name       String   @map("visitorName") @db.VarChar(100)
-  mobile             String   @db.VarChar(15)
-  id_type            String   @map("idType") @db.VarChar(50)
-  id_number          String   @map("idNumber") @db.VarChar(50)
-  department         String   @db.VarChar(100)
-  purpose            String
-  gate_number        String   @map("gateNumber") @db.VarChar(50)
-  entry_time         DateTime @default(now()) @map("entryTime")
-  expected_exit_time String?  @map("expectedExitTime") @db.VarChar(50)
-  exit_time          DateTime? @map("exitTime")
-  guard_name         String?  @map("guardName") @db.VarChar(100)
-  status             visitor_entry_status?  @default(checkin)
-  created_at         DateTime @default(now()) @map("createdAt")
-  tenants            tenants  @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visitor_entries_tenant")
+  entry_id            Int                   @id @default(autoincrement()) @map("entryId")
+  tenant_id           BigInt                @map("tenantId")
+  visitor_pass_number String?               @unique @map("visitorPassNumber") @db.VarChar(50)
+  // Distinguish between types of visitors
+  visitor_type        String?               @default("General") @map("visitorType") @db.VarChar(50)
+  company_name        String?               @map("companyName") @db.VarChar(255)
+  visitor_name        String                @map("visitorName") @db.VarChar(100)
+  mobile              String                @db.VarChar(15)
+  id_type             String                @map("idType") @db.VarChar(50)
+  id_number           String                @map("idNumber") @db.VarChar(50)
+  department          String                @db.VarChar(100)
+  purpose             String
+  gate_number         String                @map("gateNumber") @db.VarChar(50)
+  entry_time          DateTime              @default(now()) @map("entryTime")
+  expected_exit_time  String?               @map("expectedExitTime") @db.VarChar(50)
+  exit_time           DateTime?             @map("exitTime")
+  guard_name          String?               @map("guardName") @db.VarChar(100)
+  status              visitor_entry_status? @default(checkin)
+  created_at          DateTime              @default(now()) @map("createdAt")
+  tenants             tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_visitor_entries_tenant")
 
   @@index([tenant_id, entry_time], map: "idx_visitor_entries_entry_time")
   @@index([tenant_id, status], map: "idx_visitor_entries_status")
@@ -1997,31 +1995,31 @@ model supplier_categories {
 }
 
 model attendance_records {
-  attendance_id                                    BigInt             @id @default(autoincrement())
-  tenant_id                                        BigInt
-  staff_id                                         BigInt
-  attendance_date                                  DateTime           @db.Date
-  roster_id                                        BigInt?
-  status                                           attendance_status  @default(absent)
-  check_in_time                                    DateTime?          @db.Timestamp(6)
-  check_out_time                                   DateTime?          @db.Timestamp(6)
-  worked_minutes                                   Int?               @default(0)
-  late_minutes                                     Int?               @default(0)
-  early_exit_minutes                               Int?               @default(0)
-  overtime_minutes                                 Int?               @default(0)
-  source                                           attendance_source? @default(manual)
-  is_manual                                        Boolean?           @default(false)
-  remarks                                          String?
-  approved_by                                      BigInt?
-  approved_at                                      DateTime?          @db.Timestamp(6)
-  created_by                                       BigInt?
-  created_at                                       DateTime?          @default(now()) @db.Timestamp(6)
-  updated_at                                       DateTime?          @default(now()) @db.Timestamp(6)
-  tenants                                          tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_tenant")
-  staff_profiles                                   staff_profiles     @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_staff")
-  duty_roster                                      duty_roster?       @relation(fields: [roster_id], references: [roster_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_roster")
-  users_attendance_records_approved_byTousers      users?             @relation("attendance_records_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_approved_by")
-  users_attendance_records_created_byTousers       users?             @relation("attendance_records_created_byTousers", fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_created_by")
+  attendance_id                               BigInt             @id @default(autoincrement())
+  tenant_id                                   BigInt
+  staff_id                                    BigInt
+  attendance_date                             DateTime           @db.Date
+  roster_id                                   BigInt?
+  status                                      attendance_status  @default(absent)
+  check_in_time                               DateTime?          @db.Timestamp(6)
+  check_out_time                              DateTime?          @db.Timestamp(6)
+  worked_minutes                              Int?               @default(0)
+  late_minutes                                Int?               @default(0)
+  early_exit_minutes                          Int?               @default(0)
+  overtime_minutes                            Int?               @default(0)
+  source                                      attendance_source? @default(manual)
+  is_manual                                   Boolean?           @default(false)
+  remarks                                     String?
+  approved_by                                 BigInt?
+  approved_at                                 DateTime?          @db.Timestamp(6)
+  created_by                                  BigInt?
+  created_at                                  DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at                                  DateTime?          @default(now()) @db.Timestamp(6)
+  tenants                                     tenants            @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_tenant")
+  staff_profiles                              staff_profiles     @relation(fields: [staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_staff")
+  duty_roster                                 duty_roster?       @relation(fields: [roster_id], references: [roster_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_roster")
+  users_attendance_records_approved_byTousers users?             @relation("attendance_records_approved_byTousers", fields: [approved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_approved_by")
+  users_attendance_records_created_byTousers  users?             @relation("attendance_records_created_byTousers", fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_attendance_created_by")
 
   @@unique([tenant_id, staff_id, attendance_date], map: "idx_attendance_unique_staff_date")
   @@index([tenant_id, attendance_date], map: "idx_attendance_date")
@@ -2046,21 +2044,21 @@ model holiday_calendar {
 }
 
 model biometric_attendance_logs {
-  log_id            BigInt                @id @default(autoincrement())
-  tenant_id         BigInt
-  device_log_id     String                @db.VarChar(100)
-  device_id         String?               @db.VarChar(100)
-  staff_identifier  String?               @db.VarChar(100)
-  matched_staff_id  BigInt?
-  punch_time        DateTime              @db.Timestamp(6)
-  punch_type        biometric_punch_type  @default(unknown)
-  payload           Json?
-  is_processed      Boolean?              @default(false)
-  processed_at      DateTime?             @db.Timestamp(6)
-  processing_error  String?
-  created_at        DateTime?             @default(now()) @db.Timestamp(6)
-  tenants           tenants               @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bio_log_tenant")
-  staff_profiles    staff_profiles?       @relation(fields: [matched_staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bio_log_staff")
+  log_id           BigInt               @id @default(autoincrement())
+  tenant_id        BigInt
+  device_log_id    String               @db.VarChar(100)
+  device_id        String?              @db.VarChar(100)
+  staff_identifier String?              @db.VarChar(100)
+  matched_staff_id BigInt?
+  punch_time       DateTime             @db.Timestamp(6)
+  punch_type       biometric_punch_type @default(unknown)
+  payload          Json?
+  is_processed     Boolean?             @default(false)
+  processed_at     DateTime?            @db.Timestamp(6)
+  processing_error String?
+  created_at       DateTime?            @default(now()) @db.Timestamp(6)
+  tenants          tenants              @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bio_log_tenant")
+  staff_profiles   staff_profiles?      @relation(fields: [matched_staff_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bio_log_staff")
 
   @@unique([tenant_id, device_log_id], map: "idx_bio_log_unique")
   @@index([tenant_id, punch_time], map: "idx_bio_log_time")
@@ -2073,37 +2071,37 @@ model biometric_attendance_logs {
 // =============================
 
 model ambulances {
-  ambulance_id              BigInt                         @id @default(autoincrement())
-  tenant_id                 BigInt
-  facility_id               BigInt?
-  vehicle_number            String                         @unique @db.VarChar(50)
-  vehicle_type              ambulance_type
-  registration_expiry       DateTime?                      @db.Date
-  equipment_notes           String?
-  gps_device_id             String?                        @db.VarChar(100)
-  is_active                 Boolean?                       @default(true)
-  created_at                DateTime?                      @default(now()) @db.Timestamp(6)
-  updated_at                DateTime?                      @default(now()) @db.Timestamp(6)
-  tenants                   tenants                        @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulances_tenant")
-  facilities                facilities?                    @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulances_facility")
-  trips                     ambulance_trips[]
-  status_logs               ambulance_status_logs[]
-  maintenance_logs          ambulance_maintenance_logs[]
+  ambulance_id        BigInt                       @id @default(autoincrement())
+  tenant_id           BigInt
+  facility_id         BigInt?
+  vehicle_number      String                       @unique @db.VarChar(50)
+  vehicle_type        ambulance_type
+  registration_expiry DateTime?                    @db.Date
+  equipment_notes     String?
+  gps_device_id       String?                      @db.VarChar(100)
+  is_active           Boolean?                     @default(true)
+  created_at          DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?                    @default(now()) @db.Timestamp(6)
+  tenants             tenants                      @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulances_tenant")
+  facilities          facilities?                  @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulances_facility")
+  trips               ambulance_trips[]
+  status_logs         ambulance_status_logs[]
+  maintenance_logs    ambulance_maintenance_logs[]
 
   @@index([tenant_id, vehicle_number], map: "idx_ambulances_vehicle")
   @@index([tenant_id, is_active], map: "idx_ambulances_active")
 }
 
 model ambulance_drivers {
-  driver_id      BigInt              @id @default(autoincrement())
+  driver_id      BigInt            @id @default(autoincrement())
   tenant_id      BigInt
-  full_name      String              @db.VarChar(100)
-  phone          String?             @db.VarChar(20)
-  license_number String?             @db.VarChar(100)
-  license_expiry DateTime?           @db.Date
-  is_active      Boolean?            @default(true)
-  created_at     DateTime?           @default(now()) @db.Timestamp(6)
-  tenants        tenants             @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_drivers_tenant")
+  full_name      String            @db.VarChar(100)
+  phone          String?           @db.VarChar(20)
+  license_number String?           @db.VarChar(100)
+  license_expiry DateTime?         @db.Date
+  is_active      Boolean?          @default(true)
+  created_at     DateTime?         @default(now()) @db.Timestamp(6)
+  tenants        tenants           @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_drivers_tenant")
   trips          ambulance_trips[]
 
   @@index([tenant_id, is_active], map: "idx_ambulance_drivers_active")
@@ -2125,24 +2123,24 @@ model ambulance_status_logs {
 }
 
 model ambulance_calls {
-  call_id         BigInt                  @id @default(autoincrement())
+  call_id         BigInt                 @id @default(autoincrement())
   tenant_id       BigInt
   facility_id     BigInt?
-  call_number     String                  @unique @db.VarChar(50)
+  call_number     String                 @unique @db.VarChar(50)
   patient_id      BigInt?
-  patient_name    String?                 @db.VarChar(100)
-  patient_uhid    String?                 @db.VarChar(50)
+  patient_name    String?                @db.VarChar(100)
+  patient_uhid    String?                @db.VarChar(50)
   pickup_location String
   drop_location   String
-  call_type       String                  @db.VarChar(50)
+  call_type       String                 @db.VarChar(50)
   priority        priority_level?
-  status          ambulance_call_status?  @default(pending)
+  status          ambulance_call_status? @default(pending)
   requested_by    BigInt?
-  created_at      DateTime?               @default(now()) @db.Timestamp(6)
-  tenants         tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_tenant")
-  facilities      facilities?             @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_facility")
-  patients        patients?               @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_patient")
-  users           users?                  @relation(fields: [requested_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_user")
+  created_at      DateTime?              @default(now()) @db.Timestamp(6)
+  tenants         tenants                @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_tenant")
+  facilities      facilities?            @relation(fields: [facility_id], references: [facility_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_facility")
+  patients        patients?              @relation(fields: [patient_id], references: [patient_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_patient")
+  users           users?                 @relation(fields: [requested_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_calls_user")
   trips           ambulance_trips[]
 
   @@index([tenant_id, status], map: "idx_ambulance_calls_status")
@@ -2150,24 +2148,24 @@ model ambulance_calls {
 }
 
 model ambulance_trips {
-  trip_id         BigInt                  @id @default(autoincrement())
+  trip_id         BigInt                 @id @default(autoincrement())
   tenant_id       BigInt
   call_id         BigInt
   ambulance_id    BigInt
   driver_id       BigInt?
-  start_time      DateTime?               @db.Timestamp(6)
-  pickup_time     DateTime?               @db.Timestamp(6)
-  drop_time       DateTime?               @db.Timestamp(6)
-  end_time        DateTime?               @db.Timestamp(6)
-  distance_km     Decimal?                @db.Decimal(8, 2)
-  fuel_cost       Decimal?                @db.Decimal(10, 2)
-  trip_status     ambulance_trip_status?  @default(assigned)
+  start_time      DateTime?              @db.Timestamp(6)
+  pickup_time     DateTime?              @db.Timestamp(6)
+  drop_time       DateTime?              @db.Timestamp(6)
+  end_time        DateTime?              @db.Timestamp(6)
+  distance_km     Decimal?               @db.Decimal(8, 2)
+  fuel_cost       Decimal?               @db.Decimal(10, 2)
+  trip_status     ambulance_trip_status? @default(assigned)
   notes           String?
-  created_at      DateTime?               @default(now()) @db.Timestamp(6)
-  ambulance_calls ambulance_calls         @relation(fields: [call_id], references: [call_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_call")
-  ambulances      ambulances              @relation(fields: [ambulance_id], references: [ambulance_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_ambulance")
-  drivers         ambulance_drivers?      @relation(fields: [driver_id], references: [driver_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_driver")
-  tenants         tenants                 @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_tenant")
+  created_at      DateTime?              @default(now()) @db.Timestamp(6)
+  ambulance_calls ambulance_calls        @relation(fields: [call_id], references: [call_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_call")
+  ambulances      ambulances             @relation(fields: [ambulance_id], references: [ambulance_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_ambulance")
+  drivers         ambulance_drivers?     @relation(fields: [driver_id], references: [driver_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_driver")
+  tenants         tenants                @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ambulance_trips_tenant")
 
   @@index([tenant_id, trip_status], map: "idx_ambulance_trips_status")
   @@index([tenant_id, ambulance_id], map: "idx_ambulance_trips_ambulance")
@@ -2470,4 +2468,3 @@ enum ambulance_trip_status {
   completed
   cancelled
 }
-

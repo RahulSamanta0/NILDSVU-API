@@ -68,7 +68,35 @@ app.get('/health', async (request, reply) => {
 app.register(registerRoutes, { prefix: '/api' });
 
 // Serverless handler for Vercel
+let appReady = false;
+
+async function initApp() {
+    if (!appReady) {
+        await app.ready();
+        appReady = true;
+    }
+}
+
 export default async (req, res) => {
-    await app.ready();
-    app.server.emit('request', req, res);
+    try {
+        await initApp();
+
+        const response = await app.inject({
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            payload: req,
+        });
+
+        res.statusCode = response.statusCode;
+        response.headers && Object.entries(response.headers).forEach(([key, value]) => {
+            res.setHeader(key, value);
+        });
+        res.end(response.rawPayload);
+    } catch (err) {
+        console.error('❌ Serverless handler error:', err);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'Internal Server Error', message: err.message }));
+    }
 };
+
