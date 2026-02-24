@@ -15,12 +15,13 @@ async function buildApp() {
     const { default: bcrypt } = await import('fastify-bcrypt');
     const { default: registerRoutes } = await import('./globalroutes.js');
 
+    const isProduction = process.env.NODE_ENV === 'production';
     const app = Fastify({
-        logger: {
-            transport: {
-                target: '@fastify/one-line-logger'
-            }
-        }
+        logger: isProduction
+            // Plain JSON logger — works on Vercel serverless (no worker threads needed)
+            ? { level: 'info' }
+            // Pretty one-line logger — local dev only
+            : { transport: { target: '@fastify/one-line-logger' } }
     });
 
     // ── Plugins ──────────────────────────────────────────────────────────────
